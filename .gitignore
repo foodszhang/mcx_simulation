@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.rar
+*.zip
+*.raw
+*.deb
+*.hdr
+*.img
+ct_data/
+ct_mouse_data/
+
+# Virtual environments
+.venv

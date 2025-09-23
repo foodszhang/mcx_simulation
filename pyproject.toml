@@ -1,0 +1,14 @@
+[project]
+name = "simluation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ipython>=9.5.0",
+    "jdata>=0.8.3",
+    "numpy>=2.3.3",
+    "pmcx>=0.5.1",
+    "scikit-image>=0.25.2",
+    "scipy>=1.16.2",
+]

@@ -12,5 +12,9 @@ def gen_shape(radius, shape):
     sphsrc = None
     if shape == "sphere":
         sphsrc = (xi**2 + yi**2 + zi**2) <= radius**2
+        sphsrc = sphsrc.astype(np.int32)
+        print("!!!!!", sphsrc)
         sphsrc = sphsrc.astype(np.float32)
+        print("!!!!!qqq", sphsrc.max())
+
     return sphsrc, [radius, radius, radius]

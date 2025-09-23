@@ -2,5 +2,6 @@ import pmcx
 import json
 
 cfg = pmcx.io.json2mcx("test.json")
-print("3231231", cfg)
+print(cfg)
+print(pmcx.gpuinfo())
 pmcx.mcxlab(cfg)

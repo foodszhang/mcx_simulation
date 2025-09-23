@@ -32,14 +32,23 @@ Forward = {
 
 from simple_pattern_shape_gen import gen_shape
 
-sphsrc, shape = gen_shape(5, "sphere")
+radius = 5
+
+sphsrc, shape = gen_shape(radius, "sphere")
+print("55555", sphsrc.shape)
+sphsrc.tofile("test_source.bin")
 Optode = {
     "Source": {
         "Pos": [5, 5, 5],
         "Dir": [0, 0, 1],
         "Type": "pattern3d",
         # 光源维度
-        "Pattern": sphsrc.tolist(),
+        "Pattern": {
+            "Nx": sphsrc.shape[0],
+            "Ny": sphsrc.shape[1],
+            "Nz": sphsrc.shape[2],
+            "Data": "test_source.bin",
+        },
         # 光源在维度下的分布， 值代表权重
         "Param1": shape,
     }

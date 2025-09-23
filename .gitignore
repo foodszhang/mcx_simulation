@@ -13,6 +13,7 @@ wheels/
 *.img
 ct_data/
 ct_mouse_data/
+*.bin
 
 # Virtual environments
 .venv

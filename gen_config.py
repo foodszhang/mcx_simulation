@@ -39,7 +39,7 @@ print("55555", sphsrc.shape)
 sphsrc.tofile("test_source.bin")
 Optode = {
     "Source": {
-        "Pos": [5, 5, 5],
+        "Pos": [27, 27, 10],
         "Dir": [0, 0, 1],
         "Type": "pattern3d",
         # 光源维度

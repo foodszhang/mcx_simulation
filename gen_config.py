@@ -40,7 +40,7 @@ sphsrc, shape = gen_shape(radius, "sphere")
 sphsrc.tofile("test_source.bin")
 Optode = {
     "Source": {
-        "Pos": [115, 225, 140],
+        "Pos": [60, 225, 140],
         "Dir": [0, 0, 1],
         "Type": "pattern3d",
         # 光源维度

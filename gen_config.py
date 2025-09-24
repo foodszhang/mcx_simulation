@@ -10,9 +10,10 @@ volfile, shapes, media = gen_volume_and_media("brain")
 
 Domain = {
     # 二进制体素文件, 体素值与media对应，或者json定义的shapes文件
-    # "VolumeFile": 'volume.bin',
+    # "VolumeFile": "volume.json",
     "VolumeFile": volfile,
     "Dim": shapes,
+    # "Dim": (64, 64, 64),
     "OriginType": 1,
     # 一个体素对应实际距离， 单位(mm)
     "LengthUnit": 0.1,
@@ -32,21 +33,21 @@ Forward = {
 }
 
 
-radius = 5
+radius = 15
 
 sphsrc, shape = gen_shape(radius, "sphere")
 # print("55555", sphsrc.shape)
 sphsrc.tofile("test_source.bin")
 Optode = {
     "Source": {
-        "Pos": [113, 217, 118],
+        "Pos": [115, 225, 140],
         "Dir": [0, 0, 1],
         "Type": "pattern3d",
         # 光源维度
         "Pattern": {
-            "Nx": sphsrc.shape[0],
-            "Ny": sphsrc.shape[1],
-            "Nz": sphsrc.shape[2],
+            "Nx": shape[0],
+            "Ny": shape[1],
+            "Nz": shape[2],
             "Data": "test_source.bin",
         },
         # 光源在维度下的分布， 值代表权重

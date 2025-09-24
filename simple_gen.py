@@ -15,15 +15,15 @@ def gen_shape(radius, shape):
     if shape == "sphere":
         sphsrc = (xi**2 + yi**2 + zi**2) <= radius**2
         sphsrc = sphsrc.astype(np.int32)
-        print("!!!!!", sphsrc)
         sphsrc = sphsrc.astype(np.float32)
-        print("!!!!!qqq", sphsrc.max())
-        # print("!!!!!", sphsrc.flags)
+    sphsrc_shape = sphsrc.shape
+    # print("!!!!!", sphsrc.flags)
+    sphsrc = np.ravel(sphsrc, order="F")
 
-    return sphsrc, [radius, radius, radius]
+    return sphsrc, sphsrc_shape
 
 
-def gen_volume_and_media(area):
+def gen_volume_and_media(area, save_dir="./"):
     """
     原始对应
     0 --> 背景
@@ -73,11 +73,11 @@ def gen_volume_and_media(area):
             9: 4,  # 心脏 -> 4
             10: 3,  # 大脑其他部分 -> 3
             15: 6,  # 胃 -> 6
-            16: 7,  # 脾脏 -> 7
-            17: 8,  # 胰腺 -> 8
-            18: 9,  # 肝脏 -> 9
-            19: 10,  # 肾脏 -> 10
-            21: 11,  # 肺 -> 11
+            # 16: 7,  # 脾脏 -> 7
+            # 17: 8,  # 胰腺 -> 8
+            18: 7,  # 肝脏 -> 8
+            19: 8,  # 肾脏 -> 8
+            21: 9,  # 肺 -> 9
         }
         media = [
             # 0: 背景
@@ -105,6 +105,7 @@ def gen_volume_and_media(area):
         ]
     elif area == "brain":
         filename = "volume_brain.bin"
+        filename_c = "volume_brain.npy"
         # 只截取头部
         tag_data = tag_data[73:301, :300, :]
 
@@ -145,10 +146,15 @@ def gen_volume_and_media(area):
         if tag not in tag_mapping:
             print(f"警告: 发现未映射的标签 {tag}，已默认设为皮肤肌肉(1)")
             simplified_tags[tag_data == tag] = 1
-    simplified_tags = np.transpose(simplified_tags, (2, 1, 0))
-    #
-    simplified_tags.tofile(filename)
+    filename = os.path.join(save_dir, filename)
+    # simplified_tags = np.transpose(simplified_tags, (2, 1, 0))
+    # mcx要求F风格数据
     shapes = list(simplified_tags.shape)
-    shapes.reverse()
+    f_file = np.ravel(simplified_tags, order="F")
+    f_file.tofile(filename)
+    c_filename = os.path.join(save_dir, filename_c)
+    # shapes.reverse()
+    c_file = np.ravel(simplified_tags, order="C")
+    c_file.tofile(filename_c)
 
     return filename, shapes, media

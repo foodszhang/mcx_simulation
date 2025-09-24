@@ -3,19 +3,20 @@ import json
 
 config = {}
 
+from simple_gen import gen_shape, gen_volume_and_media
+
+volfile, shapes, media = gen_volume_and_media("brain")
+
+
 Domain = {
     # 二进制体素文件, 体素值与media对应，或者json定义的shapes文件
     # "VolumeFile": 'volume.bin',
-    "VolumeFile": "volume.json",
-    "Dim": [64, 64, 64],
+    "VolumeFile": volfile,
+    "Dim": shapes,
     "OriginType": 1,
     # 一个体素对应实际距离， 单位(mm)
-    "LengthUnit": 1,
-    "Media": [
-        {"mua": 0.00, "mus": 0.0, "g": 1.00, "n": 1.0},
-        {"mua": 0.003, "mus": 11.9827, "g": 0.9, "n": 1.37},
-        {"mua": 0.03180, "mus": 15.9590, "g": 0.9, "n": 1.37},
-    ],
+    "LengthUnit": 0.1,
+    "Media": media,
 }
 Session = {
     # 光子数
@@ -30,16 +31,15 @@ Forward = {
     "DT": 5.0e-09,
 }
 
-from simple_pattern_shape_gen import gen_shape
 
 radius = 5
 
 sphsrc, shape = gen_shape(radius, "sphere")
-print("55555", sphsrc.shape)
+# print("55555", sphsrc.shape)
 sphsrc.tofile("test_source.bin")
 Optode = {
     "Source": {
-        "Pos": [27, 27, 10],
+        "Pos": [113, 217, 118],
         "Dir": [0, 0, 1],
         "Type": "pattern3d",
         # 光源维度

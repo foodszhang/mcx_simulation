@@ -18,7 +18,7 @@ def gen_shape(radius, shape):
         sphsrc = sphsrc.astype(np.float32)
     sphsrc_shape = sphsrc.shape
     # print("!!!!!", sphsrc.flags)
-    sphsrc = np.ravel(sphsrc, order="F")
+    # sphsrc = np.ravel(sphsrc)
 
     return sphsrc, sphsrc_shape
 
@@ -146,15 +146,12 @@ def gen_volume_and_media(area, save_dir="./"):
         if tag not in tag_mapping:
             print(f"警告: 发现未映射的标签 {tag}，已默认设为皮肤肌肉(1)")
             simplified_tags[tag_data == tag] = 1
-    filename = os.path.join(save_dir, filename)
+    full_filename = os.path.join(save_dir, filename)
     # simplified_tags = np.transpose(simplified_tags, (2, 1, 0))
     # mcx要求F风格数据
     shapes = list(simplified_tags.shape)
-    f_file = np.ravel(simplified_tags, order="F")
-    f_file.tofile(filename)
-    c_filename = os.path.join(save_dir, filename_c)
-    # shapes.reverse()
-    c_file = np.ravel(simplified_tags, order="C")
-    c_file.tofile(filename_c)
+    # f_file = np.ravel(simplified_tags)
+    f_file = simplified_tags
+    f_file.tofile(full_filename)
 
     return filename, shapes, media

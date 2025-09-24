@@ -45,9 +45,7 @@ def get_projections(flux_matrix, tag_matrix):
 
 
 if __name__ == "__main__":
-    tag_mat = np.fromfile("./volume_brain.bin", dtype=np.uint8).reshape(
-        [228, 300, 208], order="F"
-    )
+    tag_mat = np.fromfile("./volume_brain.bin", dtype=np.uint8).reshape([228, 300, 208])
     # tag_mat = np.transpose(tag_mat, (2, 1, 0))
     import jdata as jd
 
@@ -55,7 +53,7 @@ if __name__ == "__main__":
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
-        flux = full_dat["NIFTIData"][:, :, :, 0, 0]
+        flux = full_data["NIFTIData"][:, :, :, 0, 0]
     # print("666666", flux.flags)
     flux_proj, tag_proj = get_projections(flux, tag_mat)
     fig, ax = plt.subplots(figsize=(10, 10))

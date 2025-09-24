@@ -3,6 +3,7 @@ import json
 
 config = {}
 
+import math
 from simple_gen import gen_shape, gen_volume_and_media
 
 volfile, shapes, media = gen_volume_and_media("brain")
@@ -33,16 +34,17 @@ Forward = {
 }
 
 
-radius = 15
+radius = 20
 
 sphsrc, shape = gen_shape(radius, "sphere")
 # print("55555", sphsrc.shape)
 sphsrc.tofile("test_source.bin")
+# [228, 300, 208]
 Optode = {
     "Source": {
-        "Pos": [60, 225, 140],
+        "Pos": [115, 225, 140],
         "Dir": [0, 0, 1],
-        "Type": "pattern3d",
+        # "Type": "pattern3d",
         # 光源维度
         "Pattern": {
             "Nx": shape[0],
@@ -60,5 +62,9 @@ config["Forward"] = Forward
 config["Optode"] = Optode
 
 if __name__ == "__main__":
+    import pmcx
+
+    with open("test.json", "w") as f:
+        json.dump(config, f)
     with open("test.json", "w") as f:
         json.dump(config, f)

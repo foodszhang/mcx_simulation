@@ -99,9 +99,9 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         config["Session"] = Session
         config["Forward"] = Forward
         config["Optode"] = Optode
-    save_file = os.path.join(each_save_dir, f"{i}.json")
-    with open(save_file, "w") as f:
-        json.dump(config, f)
+        save_file = os.path.join(each_save_dir, f"{i}.json")
+        with open(save_file, "w") as f:
+            json.dump(config, f)
 
 
 if __name__ == "__main__":

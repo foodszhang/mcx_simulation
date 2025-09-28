@@ -70,17 +70,20 @@ if __name__ == "__main__":
 
     # 绘制二维矩阵
     im = ax_flux.imshow(flux_proj, cmap=cmap, interpolation="bilinear", origin="upper")
+    flux = np.where(flux > 0, np.log(flux), 0)
+    log_flux_proj, tag_proj = get_projections(flux, tag_mat)
 
-    pim = ax_tag.imshow(
-        tag_proj, vmin=0, vmax=1, interpolation="bilinear", origin="upper"
-    )
+    # pim = ax_tag.imshow(
+    # tag_proj, vmin=0, vmax=1, interpolation="bilinear", origin="upper"
+    # )
+    pim = ax_tag.imshow(log_flux_proj, interpolation="bilinear", origin="upper")
     # 设置标题和坐标轴标签
     # ax.set_title(title, fontsize=14)
     ax_flux.set_xlabel("X轴", fontsize=12)
     ax_flux.set_ylabel("Y轴", fontsize=12)
 
-    cbar = fig.colorbar(im, ax=ax_flux)
-    cbar.set_label("光通量速率", fontsize=12)
+    # cbar = fig.colorbar(im, ax=ax_flux)
+    # cbar.set_label("光通量速率", fontsize=12)
 
     # 调整布局
     plt.tight_layout()

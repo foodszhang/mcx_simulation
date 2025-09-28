@@ -2,25 +2,174 @@ import json
 import numpy as np
 import nibabel as nib
 import os
+from scipy.ndimage import rotate
 
 
-def gen_shape(radius, shape):
-    xi, yi, zi = np.meshgrid(
-        np.arange(-radius, radius + 1),
-        np.arange(-radius, radius + 1),
-        np.arange(-radius, radius + 1),
-        indexing="ij",
-    )
-    sphsrc = None
+def rotate_x(theta):
+    """绕X轴旋转的旋转矩阵"""
+    theta_rad = np.radians(theta)
+    cos_theta = np.cos(theta_rad)
+    sin_theta = np.sin(theta_rad)
+    return np.array([[1, 0, 0], [0, cos_theta, -sin_theta], [0, sin_theta, cos_theta]])
+
+
+def rotate_y(theta):
+    """绕Y轴旋转的旋转矩阵"""
+    theta_rad = np.radians(theta)
+    cos_theta = np.cos(theta_rad)
+    sin_theta = np.sin(theta_rad)
+    return np.array([[cos_theta, 0, sin_theta], [0, 1, 0], [-sin_theta, 0, cos_theta]])
+
+
+def rotate_z(theta):
+    """绕Z轴旋转的旋转矩阵"""
+    theta_rad = np.radians(theta)
+    cos_theta = np.cos(theta_rad)
+    sin_theta = np.sin(theta_rad)
+    return np.array([[cos_theta, -sin_theta, 0], [sin_theta, cos_theta, 0], [0, 0, 1]])
+
+
+def rotate_point(point, rx=0, ry=0, rz=0):
+    """
+    对单个点进行三维旋转
+    point: 三维坐标 (x, y, z)
+    rx, ry, rz: 分别绕X, Y, Z轴的旋转角度(度)
+    """
+    if rx == 0 and ry == 0 and rz == 0:
+        return np.array(point, dtype=np.float64)
+
+    # 转换为numpy数组便于计算
+    p = np.array(point, dtype=np.float64)
+
+    # 应用旋转 - 统一旋转顺序为X→Y→Z，与rotate_shape保持一致
+    if rx != 0:
+        p = np.dot(rotate_x(rx), p)
+    if ry != 0:
+        p = np.dot(rotate_y(ry), p)
+    if rz != 0:
+        p = np.dot(rotate_z(rz), p)
+
+    return p
+
+
+def rotate_shape(shape_array, rx=0, ry=0, rz=0, keep_size=False):
+    """
+    对三维形状数组进行旋转
+    shape_array: 原始三维数组
+    rx, ry, rz: 分别绕X, Y, Z轴的旋转角度(度)
+    keep_size: 是否保持原始大小，False则自动调整大小以贴合旋转后的物体
+    """
+    # 如果没有旋转角度，直接返回原数组副本（避免引用问题）
+    if rx == 0 and ry == 0 and rz == 0:
+        return shape_array.copy(), shape_array.shape
+
+    # 确保输入是正确的三维数组
+    if len(shape_array.shape) != 3:
+        raise ValueError("输入必须是三维数组")
+
+    # 使用scipy的rotate函数进行旋转，order=1表示线性插值
+    rotated = shape_array.copy()
+
+    # 应用旋转 - 统一旋转顺序为X→Y→Z，与rotate_point保持一致
+    if rx != 0:
+        rotated = rotate(
+            rotated,
+            angle=rx,
+            axes=(1, 2),  # 绕X轴旋转是绕(1,2)轴
+            reshape=not keep_size,
+            order=1,
+            mode="constant",
+            cval=0,
+        )
+
+    if ry != 0:
+        rotated = rotate(
+            rotated,
+            angle=ry,
+            axes=(0, 2),  # 绕Y轴旋转是绕(0,2)轴
+            reshape=not keep_size,
+            order=1,
+            mode="constant",
+            cval=0,
+        )
+
+    if rz != 0:
+        rotated = rotate(
+            rotated,
+            angle=rz,
+            axes=(0, 1),  # 绕Z轴旋转是绕(0,1)轴
+            reshape=not keep_size,
+            order=1,
+            mode="constant",
+            cval=0,
+        )
+
+    # 将旋转后的值二值化（旋转可能产生中间值）
+    rotated = (rotated > 0.5).astype(int)
+
+    # 如果需要，移除全零的边缘以最小化数组大小
+    if not keep_size:
+        # 找到非零元素的范围
+        non_zero = np.where(rotated != 0)
+
+        # 处理完全为空的情况
+        if len(non_zero[0]) == 0:
+            return np.array([[[0]]]), (1, 1, 1)
+
+        min_x, max_x = np.min(non_zero[0]), np.max(non_zero[0])
+        min_y, max_y = np.min(non_zero[1]), np.max(non_zero[1])
+        min_z, max_z = np.min(non_zero[2]), np.max(non_zero[2])
+
+        # 裁剪到最小范围
+        rotated = rotated[min_x : max_x + 1, min_y : max_y + 1, min_z : max_z + 1]
+
+    return rotated, rotated.shape
+
+
+def gen_shape(shape, param, rotate_angles):
+    source_array = None
     if shape == "sphere":
-        sphsrc = (xi**2 + yi**2 + zi**2) <= radius**2
-        sphsrc = sphsrc.astype(np.int32)
-        sphsrc = sphsrc.astype(np.float32)
-    sphsrc_shape = sphsrc.shape
-    # print("!!!!!", sphsrc.flags)
-    # sphsrc = np.ravel(sphsrc)
+        radius = param
+        size = 2 * radius + 1
+        center = radius
+        sphere = np.zeros((size, size, size), dtype=int)
 
-    return sphsrc, sphsrc_shape
+        for x in range(size):
+            for y in range(size):
+                for z in range(size):
+                    dx = x - center
+                    dy = y - center
+                    dz = z - center
+                    distance = np.sqrt(dx**2 + dy**2 + dz**2)
+                    if distance <= radius:
+                        sphere[x, y, z] = 1
+        source_array = sphere
+    elif shape == "cube":
+        size = param
+        cube = np.ones((size, size, size), dtype=int)
+        source_array = cube
+    elif shape == "cylinder":
+        # radius, height = param
+        radius = 8
+        height = 20
+        diam = 2 * radius + 1
+        center = radius
+        cylinder = np.zeros((diam, diam, height), dtype=int)
+
+        for x in range(diam):
+            for y in range(diam):
+                dx = x - center
+                dy = y - center
+                distance = np.sqrt(dx**2 + dy**2)
+                if distance <= radius:
+                    cylinder[x, y, :] = 1
+
+        source_array = cylinder
+    source_array, shape = rotate_shape(
+        source_array, rotate_angles[0], rotate_angles[1], rotate_angles[2]
+    )
+
+    return source_array, shape
 
 
 def gen_volume_and_media(area, save_dir="./"):
@@ -54,6 +203,9 @@ def gen_volume_and_media(area, save_dir="./"):
     tag_data = img.get_fdata().astype(np.uint8)
     tag_data = np.ascontiguousarray(tag_data)
     # print("5555", tag_data.flags)
+    # ct_img = nib.load("./ct_data/ct_380x992x208.hdr")
+    # ct_data = ct_img.get_fdata().astype(np.uint8)
+    # ct_data = np.ascontiguousarray(ct_data)
 
     media = []
     if len(tag_data.shape) == 4:
@@ -105,10 +257,10 @@ def gen_volume_and_media(area, save_dir="./"):
         ]
     elif area == "brain":
         filename = "volume_brain.bin"
-        filename_c = "volume_brain.npy"
         # 只截取头部
-        tag_data = tag_data[73:301, :300, :]
-
+        tag_data = tag_data[100:280, :300, :]
+        # ct_data = ct_data[100:280, :300, :]
+        # ct_data.tofile("ct_brain.bin")
         tag_mapping = {
             0: 0,  # 背景
             1: 1,  # 皮肤
@@ -154,4 +306,4 @@ def gen_volume_and_media(area, save_dir="./"):
     f_file = simplified_tags
     f_file.tofile(full_filename)
 
-    return filename, shapes, media
+    return filename, shapes, media, simplified_tags

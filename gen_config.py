@@ -34,7 +34,7 @@ Forward = {
 }
 
 
-radius = 20
+radius = 15
 
 sphsrc, shape = gen_shape(radius, "sphere")
 # print("55555", sphsrc.shape)
@@ -42,9 +42,9 @@ sphsrc.tofile("test_source.bin")
 # [228, 300, 208]
 Optode = {
     "Source": {
-        "Pos": [115, 225, 140],
-        "Dir": [0, 0, 1],
-        # "Type": "pattern3d",
+        "Pos": [88, 200, 135],
+        "Dir": [0, 0, 1, "_NaN_"],
+        "Type": "pattern3d",
         # 光源维度
         "Pattern": {
             "Nx": shape[0],
@@ -64,7 +64,5 @@ config["Optode"] = Optode
 if __name__ == "__main__":
     import pmcx
 
-    with open("test.json", "w") as f:
-        json.dump(config, f)
     with open("test.json", "w") as f:
         json.dump(config, f)

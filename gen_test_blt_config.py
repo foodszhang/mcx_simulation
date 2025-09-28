@@ -3,6 +3,7 @@ import os
 
 
 from simple_gen import gen_shape, gen_volume_and_media
+from vis_3d import visualize_3d_array
 
 
 from datetime import datetime
@@ -19,7 +20,7 @@ random.seed(42)
 
 def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
     os.makedirs(save_dir, exist_ok=True)
-    volfile, vol_shape, media = gen_volume_and_media("brain", save_dir)
+    volfile, vol_shape, media, vol = gen_volume_and_media("brain", save_dir)
     for i in range(num):
         session = str(i)
         each_save_dir = os.path.join(save_dir, f"{i}")
@@ -51,18 +52,42 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             "DT": 5.0e-09,
         }
 
-        radius = random.randint(1, 14)
+        source_type = "cylinder"
+        source_shape_list = ["sphere", "cube", "cylinder"]
+        source_type = source_shape_list[random.randint(0, len(source_shape_list) - 1)]
+        if source_type == "sphere":
+            radius = random.randint(2, 14)
 
-        source_type = "sphere"
-        # print("55555", sphsrc.shape)
-        source_filename = f"{source_type}-{radius}.bin"
+            source_filename = f"{source_type}-{radius}.bin"
+            source, source_shape = gen_shape(source_type, radius, (0, 0, 0))
+        elif source_type == "cube":
+            size = random.randint(2, 14)
+            rotate_angles = (
+                random.randint(0, 90),
+                random.randint(0, 90),
+                random.randint(0, 90),
+            )
+            source_filename = f"{source_type}-{size}.bin"
+            source, source_shape = gen_shape(source_type, size, rotate_angles)
+        elif source_type == "cylinder":
+            height = random.randint(2, 14)
+            radius = random.randint(2, 14)
+            rotate_angles = (
+                random.randint(0, 90),
+                random.randint(0, 90),
+                random.randint(0, 90),
+            )
+            rotate_angles = [30, 0, 0]
+            source, source_shape = gen_shape(
+                source_type, (radius, height), rotate_angles
+            )
+            source_filename = f"{source_type}-{radius}-{height}.bin"
+
         full_source_filename = os.path.join(each_save_dir, source_filename)
-        source, source_shape = gen_shape(radius, source_type)
-        if not os.path.exists(full_source_filename):
-            source.tofile(full_source_filename)
+        source.tofile(full_source_filename)
 
         ###TODO: 更智能的选择
-        rand_x = random.randint(100, 120)
+        rand_x = random.randint(30, 140)
         rand_y = random.randint(140, 260)
         rand_z = random.randint(100, 120)
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
@@ -79,10 +104,18 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
         # source
         np.save(full_source_in_vol_filename, source_in_vol)
+
+        all_in_one = np.zeros_like(vol)
+        all_in_one = np.where(source_in_vol > 0, 4, vol)
+        all_in_one = all_in_one.astype(np.uint8)
+        all_in_one.tofile(os.path.join(each_save_dir, "all_tag.bin"))
+        # visualize_3d_array(all_in_one)
+        # print("5345345345", np.where(all_in_one == 4))
+
         Optode = {
             "Source": {
                 "Pos": [rand_x, rand_y, rand_z],
-                "Dir": [0, 0, 1],
+                "Dir": [0, 0, 1, "nan"],
                 "Type": "pattern3d",
                 # 光源维度
                 "Pattern": {

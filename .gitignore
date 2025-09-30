@@ -17,6 +17,7 @@ ct_mouse_data/
 *.jnii
 *.npy
 2025*/
+green*/
 
 # Virtual environments
 .venv

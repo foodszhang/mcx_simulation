@@ -1,6 +1,6 @@
 import jdata as jd
 
-full_data = jd.loadjd("./test.jnii")
+full_data = jd.loadjd("./green_50/0_0_0.jnii")
 if len(full_data["NIFTIData"].shape) == 3:
     flux = full_data["NIFTIData"][:, :, :]
 else:
@@ -12,9 +12,9 @@ from matplotlib.widgets import Slider
 
 # 确保中文显示正常
 plt.rcParams["font.family"] = ["SimHei"]
-max_flux = 700000
-print("534534534", flux[:, :, 57].max())
-flux = np.where(flux > max_flux, max_flux, flux)
+# max_flux = 700000
+# print("534534534", flux[:, :, 57].max())
+# flux = np.where(flux > max_flux, max_flux, flux)
 
 
 # 获取矩阵维度

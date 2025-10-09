@@ -105,7 +105,7 @@ def rotate_shape(shape_array, rx=0, ry=0, rz=0, keep_size=False):
         )
 
     # 将旋转后的值二值化（旋转可能产生中间值）
-    rotated = (rotated > 0.5).astype(int)
+    rotated = (rotated > 0.2).astype(int)
 
     # 如果需要，移除全零的边缘以最小化数组大小
     if not keep_size:
@@ -114,6 +114,7 @@ def rotate_shape(shape_array, rx=0, ry=0, rz=0, keep_size=False):
 
         # 处理完全为空的情况
         if len(non_zero[0]) == 0:
+            print("5345345")
             return np.array([[[0]]]), (1, 1, 1)
 
         min_x, max_x = np.min(non_zero[0]), np.max(non_zero[0])
@@ -149,9 +150,9 @@ def gen_shape(shape, param, rotate_angles):
         cube = np.ones((size, size, size), dtype=int)
         source_array = cube
     elif shape == "cylinder":
-        # radius, height = param
-        radius = 8
-        height = 20
+        radius, height = param
+        # radius = 8
+        # height = 20
         diam = 2 * radius + 1
         center = radius
         cylinder = np.zeros((diam, diam, height), dtype=int)

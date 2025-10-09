@@ -45,11 +45,13 @@ def get_projections(flux_matrix, tag_matrix):
 
 
 if __name__ == "__main__":
-    tag_mat = np.fromfile("./volume_brain.bin", dtype=np.uint8).reshape([228, 300, 208])
+    tag_mat = np.fromfile("./20251009/volume_brain.bin", dtype=np.uint8).reshape(
+        [180, 300, 208]
+    )
     # tag_mat = np.transpose(tag_mat, (2, 1, 0))
     import jdata as jd
 
-    full_data = jd.loadjd("./test.jnii")
+    full_data = jd.loadjd("./20251009/0/0.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:

@@ -57,7 +57,7 @@ def process_folders(root_dir):
                 # TODO: 这里硬编码了， 改日再改吧
                 tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
                 tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape(
-                    [228, 300, 208]
+                    [180, 300, 208]
                 )
                 full_data = jd.loadjd(result_file)
                 if len(full_data["NIFTIData"].shape) == 3:

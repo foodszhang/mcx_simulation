@@ -77,6 +77,9 @@ def gen_green_blt_config(size=50):
                 save_file = os.path.join(save_dir, json_file)
                 with open(save_file, "w") as f:
                     json.dump(config, f)
+                import sys
+
+                sys.exit(0)
                 result = subprocess.run(
                     ["mcxcl", "-f", json_file, "-a", "1"],
                     cwd=save_dir,  # 在子文件夹中执行命令

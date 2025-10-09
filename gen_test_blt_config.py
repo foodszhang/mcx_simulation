@@ -52,7 +52,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             "DT": 5.0e-09,
         }
 
-        source_type = "cylinder"
+        # source_type = "cylinder"
         source_shape_list = ["sphere", "cube", "cylinder"]
         source_type = source_shape_list[random.randint(0, len(source_shape_list) - 1)]
         if source_type == "sphere":
@@ -70,7 +70,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             source_filename = f"{source_type}-{size}.bin"
             source, source_shape = gen_shape(source_type, size, rotate_angles)
         elif source_type == "cylinder":
-            height = random.randint(2, 14)
+            height = random.randint(7, 14)
             radius = random.randint(2, 14)
             rotate_angles = (
                 random.randint(0, 90),
@@ -84,7 +84,9 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             source_filename = f"{source_type}-{radius}-{height}.bin"
 
         full_source_filename = os.path.join(each_save_dir, source_filename)
+        source = source.astype(np.float32)
         source.tofile(full_source_filename)
+        print("566666", source.dtype, source.shape)
 
         ###TODO: 更智能的选择
         rand_x = random.randint(30, 140)
@@ -97,7 +99,6 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             rand_z : rand_z + source_shape[2],
         ] = source
         source_in_vol_filename = "source_in_vol.npy"
-        # print("55555", source_in_vol.dtype, source_in_vol.shape)
         full_source_in_vol_filename = os.path.join(
             each_save_dir, source_in_vol_filename
         )
@@ -110,12 +111,11 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         all_in_one = all_in_one.astype(np.uint8)
         all_in_one.tofile(os.path.join(each_save_dir, "all_tag.bin"))
         # visualize_3d_array(all_in_one)
-        # print("5345345345", np.where(all_in_one == 4))
 
         Optode = {
             "Source": {
                 "Pos": [rand_x, rand_y, rand_z],
-                "Dir": [0, 0, 1, "nan"],
+                "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 # 光源维度
                 "Pattern": {

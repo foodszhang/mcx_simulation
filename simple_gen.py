@@ -105,7 +105,7 @@ def rotate_shape(shape_array, rx=0, ry=0, rz=0, keep_size=False):
         )
 
     # 将旋转后的值二值化（旋转可能产生中间值）
-    rotated = (rotated > 0.2).astype(int)
+    rotated = (rotated > 0).astype(int)
 
     # 如果需要，移除全零的边缘以最小化数组大小
     if not keep_size:
@@ -170,7 +170,7 @@ def gen_shape(shape, param, rotate_angles):
         source_array, rotate_angles[0], rotate_angles[1], rotate_angles[2]
     )
 
-    return source_array, shape
+    return source_array, source_array.shape
 
 
 def gen_volume_and_media(area, save_dir="./"):

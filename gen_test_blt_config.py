@@ -52,16 +52,16 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             "DT": 5.0e-09,
         }
 
-        # source_type = "cylinder"
         source_shape_list = ["sphere", "cube", "cylinder"]
         source_type = source_shape_list[random.randint(0, len(source_shape_list) - 1)]
+        # source_type = "cylinder"
         if source_type == "sphere":
-            radius = random.randint(2, 14)
+            radius = random.randint(4, 14)
 
             source_filename = f"{source_type}-{radius}.bin"
             source, source_shape = gen_shape(source_type, radius, (0, 0, 0))
         elif source_type == "cube":
-            size = random.randint(2, 14)
+            size = random.randint(4, 14)
             rotate_angles = (
                 random.randint(0, 90),
                 random.randint(0, 90),
@@ -71,7 +71,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             source, source_shape = gen_shape(source_type, size, rotate_angles)
         elif source_type == "cylinder":
             height = random.randint(7, 14)
-            radius = random.randint(2, 14)
+            radius = random.randint(5, 14)
             rotate_angles = (
                 random.randint(0, 90),
                 random.randint(0, 90),
@@ -138,4 +138,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(1)
+    gen_multi_single_blt_config(2000)

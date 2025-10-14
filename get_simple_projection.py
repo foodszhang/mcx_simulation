@@ -65,21 +65,21 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
         )
 
     x_size, y_size, z_size = flux_matrix.shape
-    projections = {}
+    projections = []
 
     # 1. Z轴朝下 (从Z=0向Z=z_size-1查找)
-    flux_z_down = np.zeros((x_size, y_size), dtype=flux_matrix.dtype)
-    tag_z_down = np.zeros((x_size, y_size), dtype=tag_matrix.dtype)
+    flux_z_down = np.zeros((y_size, x_size), dtype=flux_matrix.dtype)
+    tag_z_down = np.zeros((y_size, x_size), dtype=tag_matrix.dtype)
 
     for y in range(y_size):
         for x in range(x_size):
             for z in range(z_size):  # 从Z轴底部（索引0）向上查找
                 if tag_matrix[x, y, z] != 0:
-                    flux_z_down[x, y] = flux_matrix[x, y, z]
-                    tag_z_down[x, y] = 1
+                    flux_z_down[y, x] = flux_matrix[x, y, z]
+                    tag_z_down[y, x] = 1
                     break
 
-    projections["z_down"] = (flux_z_down, tag_z_down)
+    projections.append(flux_z_down)
 
     # 2. Z轴朝上 (从Z=z_size-1向Z=0查找)
     flux_z_up = np.zeros((x_size, y_size), dtype=flux_matrix.dtype)
@@ -93,8 +93,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     tag_z_up[x, y] = 1
                     break
 
-    projections["z_up"] = (flux_z_up, tag_z_up)
-
+    projections.append(flux_z_up)
     # 3. X轴朝下 (从X=0向X=x_size-1查找)
     flux_x_down = np.zeros((y_size, z_size), dtype=flux_matrix.dtype)
     tag_x_down = np.zeros((y_size, z_size), dtype=tag_matrix.dtype)
@@ -107,21 +106,22 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     tag_x_down[y, z] = 1
                     break
 
-    projections["x_down"] = (flux_x_down, tag_x_down)
+    projections.append(flux_x_down)
 
     # 4. X轴朝上 (从X=x_size-1向X=0查找)
-    flux_x_up = np.zeros((y_size, z_size), dtype=flux_matrix.dtype)
-    tag_x_up = np.zeros((y_size, z_size), dtype=tag_matrix.dtype)
+    flux_x_up = np.zeros((z_size, y_size), dtype=flux_matrix.dtype)
+    tag_x_up = np.zeros((z_size, y_size), dtype=tag_matrix.dtype)
 
     for z in range(z_size):
         for y in range(y_size):
             for x in range(x_size - 1, -1, -1):  # 从X轴右侧向左查找
                 if tag_matrix[x, y, z] != 0:
-                    flux_x_up[y, z] = flux_matrix[x, y, z]
-                    tag_x_up[y, z] = 1
+                    flux_x_up[z, y] = flux_matrix[x, y, z]
+                    tag_x_up[z, y] = 1
                     break
 
-    projections["x_up"] = (flux_x_up, tag_x_up)
+    # projections["x_up"] = (flux_x_up, tag_x_up)
+    projections.append(flux_x_up)
 
     return projections
 

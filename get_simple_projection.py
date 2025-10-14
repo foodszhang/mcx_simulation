@@ -65,7 +65,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
         )
 
     x_size, y_size, z_size = flux_matrix.shape
-    projections = []
+    projections = {}
 
     # 1. Z轴朝下 (从Z=0向Z=z_size-1查找)
     flux_z_down = np.zeros((y_size, x_size), dtype=flux_matrix.dtype)
@@ -79,7 +79,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     tag_z_down[y, x] = 1
                     break
 
-    projections.append(flux_z_down)
+    projections["d1"] = flux_z_down
 
     # 2. Z轴朝上 (从Z=z_size-1向Z=0查找)
     flux_z_up = np.zeros((x_size, y_size), dtype=flux_matrix.dtype)
@@ -93,7 +93,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     tag_z_up[x, y] = 1
                     break
 
-    projections.append(flux_z_up)
+    projections["d2"] = flux_z_up
     # 3. X轴朝下 (从X=0向X=x_size-1查找)
     flux_x_down = np.zeros((y_size, z_size), dtype=flux_matrix.dtype)
     tag_x_down = np.zeros((y_size, z_size), dtype=tag_matrix.dtype)
@@ -106,8 +106,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     tag_x_down[y, z] = 1
                     break
 
-    projections.append(flux_x_down)
-
+    projections["d3"] = flux_x_down
     # 4. X轴朝上 (从X=x_size-1向X=0查找)
     flux_x_up = np.zeros((z_size, y_size), dtype=flux_matrix.dtype)
     tag_x_up = np.zeros((z_size, y_size), dtype=tag_matrix.dtype)
@@ -121,8 +120,7 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
                     break
 
     # projections["x_up"] = (flux_x_up, tag_x_up)
-    projections.append(flux_x_up)
-
+    projections["d4"] = flux_x_up
     return projections
 
 

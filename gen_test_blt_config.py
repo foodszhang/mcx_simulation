@@ -91,7 +91,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         ###TODO: 更智能的选择
         rand_x = random.randint(30, 140)
         rand_y = random.randint(140, 260)
-        rand_z = random.randint(100, 120)
+        rand_z = random.randint(80, 120)
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
         source_in_vol[
             rand_x : rand_x + source_shape[0],
@@ -104,12 +104,12 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         )
 
         # source
-        np.save(full_source_in_vol_filename, source_in_vol)
+        # np.save(full_source_in_vol_filename, source_in_vol)
 
-        all_in_one = np.zeros_like(vol)
-        all_in_one = np.where(source_in_vol > 0, 4, vol)
-        all_in_one = all_in_one.astype(np.uint8)
-        all_in_one.tofile(os.path.join(each_save_dir, "all_tag.bin"))
+        # all_in_one = np.zeros_like(vol)
+        # all_in_one = np.where(source_in_vol > 0, 4, vol)
+        # all_in_one = all_in_one.astype(np.uint8)
+        # all_in_one.tofile(os.path.join(each_save_dir, "all_tag.bin"))
         # visualize_3d_array(all_in_one)
 
         Optode = {
@@ -138,4 +138,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(2000)
+    gen_multi_single_blt_config(4000)

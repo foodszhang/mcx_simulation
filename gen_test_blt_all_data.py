@@ -15,6 +15,11 @@ def process_folders(root_dir):
     # 检查根目录是否存在
     if not os.path.exists(root_dir):
         raise Exception(f"错误: 目录 {root_dir} 不存在")
+    tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
+    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([180, 300, 208])
+    tag_data_path = os.path.join(root_dir, f"volume_brain.npy")
+    if not os.path.exists(tag_data_path):
+        np.save(tag_data_path, tag_mat)
 
     # 遍历根目录下的所有条目
     for entry in os.listdir(root_dir):
@@ -55,24 +60,20 @@ def process_folders(root_dir):
                     raise Exception(f"{result_file} 未生成！")
                 # tag_mat = np.fromfile("../volume_brain.bin")
                 # TODO: 这里硬编码了， 改日再改吧
-                tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
-                tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape(
-                    [180, 300, 208]
-                )
                 full_data = jd.loadjd(result_file)
                 if len(full_data["NIFTIData"].shape) == 3:
                     flux = full_data["NIFTIData"][:, :, :]
                 else:
                     flux = full_data["NIFTIData"][:, :, :, 0, 0]
                 flux_data_path = os.path.join(entry_path, f"{entry}_flux.npy")
-                proj_data_path = os.path.join(entry_path, f"{entry}_proj.npy")
+                proj_data_path = os.path.join(entry_path, f"{entry}_proj.npz")
+                # np.save(flux_data_path, flux)
                 tag_data_path = os.path.join(root_dir, f"volume_brain.npy")
-                np.save(flux_data_path, flux)
                 if not os.path.exists(tag_data_path):
                     np.save(tag_data_path, tag_mat)
 
-                flux_proj = get_multi_direction_projections(flux, tag_mat)
-                np.save(proj_data_path, flux_proj)
+                # flux_proj = get_multi_direction_projections(flux, tag_mat)
+                # np.savez(proj_data_path, **flux_proj)
 
             except subprocess.CalledProcessError as e:
                 print(f"命令执行失败，错误: {e.stderr}")
@@ -82,5 +83,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251009/"
+    root_directory = "./20251014/"
     process_folders(root_directory)

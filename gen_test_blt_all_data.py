@@ -2,7 +2,7 @@ import subprocess
 import os
 import jdata as jd
 import numpy as np
-from get_simple_projection import get_projections
+from get_simple_projection import get_projections, get_multi_direction_projections
 
 
 def process_folders(root_dir):
@@ -71,7 +71,7 @@ def process_folders(root_dir):
                 if not os.path.exists(tag_data_path):
                     np.save(tag_data_path, tag_mat)
 
-                flux_proj, tag_proj = get_projections(flux, tag_mat)
+                flux_proj = get_multi_direction_projections(flux, tag_mat)
                 np.save(proj_data_path, flux_proj)
 
             except subprocess.CalledProcessError as e:

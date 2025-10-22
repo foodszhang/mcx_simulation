@@ -1,6 +1,6 @@
 import jdata as jd
 
-full_data = jd.loadjd("./green_50/0_0_0.jnii")
+full_data = jd.loadjd("./20251017/1/1.jnii")
 if len(full_data["NIFTIData"].shape) == 3:
     flux = full_data["NIFTIData"][:, :, :]
 else:

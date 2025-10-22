@@ -16,7 +16,7 @@ def process_folders(root_dir):
     if not os.path.exists(root_dir):
         raise Exception(f"错误: 目录 {root_dir} 不存在")
     tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
-    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([180, 300, 208])
+    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([182, 164, 210])
     tag_data_path = os.path.join(root_dir, f"volume_brain.npy")
     if not os.path.exists(tag_data_path):
         np.save(tag_data_path, tag_mat)
@@ -36,7 +36,8 @@ def process_folders(root_dir):
                 raise Exception(
                     f"警告: {json_file} 在 {entry_path} 中不存在，跳过该文件夹"
                 )
-
+            if os.path.exists(os.path.join(entry_path, f"{entry}.jnii")):
+                continue
             # 执行mcx命令
             try:
                 print(f"执行命令: mcx -f {json_file} -a 1 在 {entry_path}")
@@ -83,5 +84,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251014/"
+    root_directory = "./20251021/"
     process_folders(root_directory)

@@ -38,7 +38,7 @@ def process_folders(root_dir):
     # 遍历根目录下的所有条目
     #
     tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
-    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([180, 300, 208])
+    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([182, 164, 210])
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
     results = []
     for entry in os.listdir(root_dir):
@@ -80,5 +80,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251014/"
+    root_directory = "./20251021/"
     process_folders(root_directory)

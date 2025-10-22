@@ -125,20 +125,21 @@ def get_multi_direction_projections(flux_matrix, tag_matrix):
 
 
 if __name__ == "__main__":
-    tag_mat = np.fromfile("./20251010/volume_brain.bin", dtype=np.uint8).reshape(
-        [180, 300, 208]
+    tag_mat = np.fromfile("./20251021/volume_brain.bin", dtype=np.uint8).reshape(
+        [182, 164, 210]
     )
     # tag_mat = np.transpose(tag_mat, (2, 1, 0))
     import jdata as jd
 
-    full_data = jd.loadjd("./20251010/0/0.jnii")
+    full_data = jd.loadjd("./20251021/1/1.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
         flux = full_data["NIFTIData"][:, :, :, 0, 0]
     # print("666666", flux.flags)
     projections = get_multi_direction_projections(flux, tag_mat)
-    flux_proj = projections["d4"]
+    view = "d1"
+    flux_proj = projections[view]
     # flux_proj, tag_proj = get_projections(flux, tag_mat)
     print("6666666", flux_proj.shape)
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -155,9 +156,9 @@ if __name__ == "__main__":
 
     # 绘制二维矩阵
     im = ax_flux.imshow(flux_proj, cmap=cmap, interpolation="bilinear", origin="upper")
-    flux = np.where(flux > 0, np.log(flux), 0)
+    flux = np.where(flux > 1e6, 0, flux)
     log_projections = get_multi_direction_projections(flux, tag_mat)
-    log_flux_proj = log_projections["d4"]
+    log_flux_proj = log_projections[view]
     #
     # log_flux_proj, tag_proj = get_projections(flux, tag_mat)
     #

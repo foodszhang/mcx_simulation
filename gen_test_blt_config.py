@@ -86,12 +86,12 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         full_source_filename = os.path.join(each_save_dir, source_filename)
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
-        print("566666", source.dtype, source.shape)
 
         ###TODO: 更智能的选择
-        rand_x = random.randint(30, 140)
-        rand_y = random.randint(140, 260)
-        rand_z = random.randint(80, 120)
+        rand_x = random.randint(70, 100)
+        rand_y = random.randint(20, 100)
+        rand_z = random.randint(80, 100)
+        ####[182, 164, 210]
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
         source_in_vol[
             rand_x : rand_x + source_shape[0],
@@ -138,4 +138,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(4000)
+    gen_multi_single_blt_config(2000)

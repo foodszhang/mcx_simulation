@@ -259,7 +259,13 @@ def gen_volume_and_media(area, save_dir="./"):
     elif area == "brain":
         filename = "volume_brain.bin"
         # 只截取头部
-        tag_data = tag_data[100:280, :300, :]
+        tag_data = tag_data[100:280, 116:278, :]
+        tag_data = np.pad(
+            tag_data,
+            pad_width=((1, 1), (1, 1), (1, 1)),
+            mode="constant",
+            constant_values=0,
+        )
         # ct_data = ct_data[100:280, :300, :]
         # ct_data.tofile("ct_brain.bin")
         tag_mapping = {
@@ -274,15 +280,16 @@ def gen_volume_and_media(area, save_dir="./"):
             8: 3,  # 纹状体 -> 3
             10: 3,  # 大脑其他部分 -> 3
         }
+        #### 改为近红外二区
         media = [
             # 0: 背景
             {"mua": 0.00, "mus": 0.0, "g": 1.00, "n": 1.0},
             # 1: 皮肤及相关组织（皮肤、眼睛、咬肌、泪腺、膀胱、睾丸、肾上腺）
-            {"mua": 0.0338, "mus": 11.9827, "g": 0.9, "n": 1.37},
+            {"mua": 0.0921, "mus": 0.619, "g": 0.9, "n": 1.37},
             # 2: 骨骼
-            {"mua": 0.05251, "mus": 24.4153, "g": 0.9, "n": 1.37},
+            {"mua": 0.02083, "mus": 2.490, "g": 0.9, "n": 1.37},
             # 3: 全脑（延髓、小脑、嗅球、外部大脑、纹状体、大脑其他部分）
-            {"mua": 0.03180, "mus": 15.9590, "g": 0.9, "n": 1.37},
+            {"mua": 0.0648, "mus": 2.392, "g": 0.9, "n": 1.37},
         ]
 
     else:

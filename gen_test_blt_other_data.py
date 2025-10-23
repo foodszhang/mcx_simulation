@@ -4,6 +4,7 @@ import jdata as jd
 import numpy as np
 from get_simple_projection import get_projections, get_multi_direction_projections
 import concurrent.futures
+from gen_mul_projection import generate_projection_view
 
 
 def gen_other(entry_path, entry, tag_mat):
@@ -18,9 +19,25 @@ def gen_other(entry_path, entry, tag_mat):
     else:
         flux = full_data["NIFTIData"][:, :, :, 0, 0]
     proj_data_path = os.path.join(entry_path, f"proj.npz")
+    dep_proj_data_path = os.path.join(entry_path, f"dep_proj.npz")
 
-    flux_proj = get_multi_direction_projections(flux, tag_mat)
+    # flux_proj = get_multi_direction_projections(flux, tag_mat)
+
+    flux_proj = {}
+    depth_proj = {}
+    for angle in [-90, -60, -30, 0, 30, 60, 90]:
+        proj, depth = generate_projection_view(
+            flux,
+            angle,
+            200,
+            (256, 256),
+            (256, 256),
+        )
+        flux_proj[f"{angle}"] = proj
+        depth_proj[f"{angle}"] = depth
+
     np.savez(proj_data_path, **flux_proj)
+    np.savez(dep_proj_data_path, **flux_proj)
     return 0
 
 
@@ -75,7 +92,7 @@ def process_folders(root_dir):
         try:
             data = future.result()
         except Exception as exc:
-            print("%r generated an exception")
+            print("%r generated an exception", exec)
 
 
 if __name__ == "__main__":

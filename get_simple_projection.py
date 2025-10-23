@@ -131,7 +131,7 @@ if __name__ == "__main__":
     # tag_mat = np.transpose(tag_mat, (2, 1, 0))
     import jdata as jd
 
-    full_data = jd.loadjd("./20251021/1/1.jnii")
+    full_data = jd.loadjd("./20251021/0/0.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     # 绘制二维矩阵
     im = ax_flux.imshow(flux_proj, cmap=cmap, interpolation="bilinear", origin="upper")
-    flux = np.where(flux > 1e6, 0, flux)
+    flux = np.where(flux > 8e5, 0, flux)
     log_projections = get_multi_direction_projections(flux, tag_mat)
     log_flux_proj = log_projections[view]
     #

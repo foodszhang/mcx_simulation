@@ -9,6 +9,7 @@ dependencies = [
     "iso2mesh>=0.5.1",
     "jdata>=0.8.3",
     "nibabel>=5.3.2",
+    "numba>=0.62.1",
     "numpy>=2.3.3",
     "pmcx>=0.5.1",
     "pyqt6>=6.9.1",

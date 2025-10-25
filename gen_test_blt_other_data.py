@@ -4,7 +4,7 @@ import jdata as jd
 import numpy as np
 from get_simple_projection import get_projections, get_multi_direction_projections
 import concurrent.futures
-from gen_mul_projection import generate_projection_view
+from gen_mul_projection import generate_projection_view_matrix
 
 
 def gen_other(entry_path, entry, tag_mat):
@@ -26,7 +26,7 @@ def gen_other(entry_path, entry, tag_mat):
     flux_proj = {}
     depth_proj = {}
     for angle in [-90, -60, -30, 0, 30, 60, 90]:
-        proj, depth = generate_projection_view(
+        proj, depth = generate_projection_view_matrix(
             flux,
             angle,
             200,
@@ -97,5 +97,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251021/"
+    root_directory = "./20251024/"
     process_folders(root_directory)

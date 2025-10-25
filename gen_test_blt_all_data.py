@@ -84,5 +84,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251021/"
+    root_directory = "./20251024/"
     process_folders(root_directory)

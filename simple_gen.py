@@ -2,6 +2,7 @@ import json
 import numpy as np
 import nibabel as nib
 import os
+import random
 from scipy.ndimage import rotate
 
 
@@ -114,7 +115,10 @@ def rotate_shape(shape_array, rx=0, ry=0, rz=0, keep_size=False):
 
         # 处理完全为空的情况
         if len(non_zero[0]) == 0:
-            print("5345345")
+            print(
+                "5345345what",
+            )
+
             return np.array([[[0]]]), (1, 1, 1)
 
         min_x, max_x = np.min(non_zero[0]), np.max(non_zero[0])
@@ -171,6 +175,110 @@ def gen_shape(shape, param, rotate_angles):
     )
 
     return source_array, source_array.shape
+
+
+def generate_multiple_shapes(
+    voxel_size,
+    num_shapes,
+    shape_types=None,
+    min_param=4,
+    max_param=20,
+    max_rotation=360,
+):
+    """
+    在指定体素范围内生成多个随机不重叠的3D形状
+
+    参数:
+        voxel_size: 元组 (x, y, z)，指定体素空间的大小
+        num_shapes: 要生成的形状数量
+        shape_types: 可选，指定可生成的形状类型列表，默认包含sphere, cube, cylinder
+        min_param: 参数最小值（半径/大小）
+        max_param: 参数最大值（半径/大小）
+        max_rotation: 最大旋转角度（度），默认360度
+
+    返回:
+        voxel_volume: 填充了形状的体素空间（0表示空，非0表示形状）
+        shapes_info: 包含每个形状信息的列表（位置、类型、参数等）
+    """
+    # 初始化体素空间
+    voxel_volume = np.zeros(voxel_size, dtype=int)
+    shapes_info = []
+
+    # 默认形状类型
+    if shape_types is None:
+        shape_types = ["sphere", "cube", "cylinder"]
+
+    # 生成指定数量的形状
+    for shape_id in range(1, num_shapes + 1):
+        placed = False
+        # 尝试放置形状（最多尝试100次避免无限循环）
+        for _ in range(100):
+            # 随机选择形状类型
+            shape = random.choice(shape_types)
+
+            # 根据形状类型生成随机参数
+            if shape == "sphere":
+                radius = random.randint(min_param, max_param)
+                param = radius
+            elif shape == "cube":
+                size = random.randint(min_param, max_param)
+                param = size
+            elif shape == "cylinder":
+                radius = random.randint(min_param, max_param)
+                height = random.randint(min_param * 2, max_param * 2)
+                param = (radius, height)
+
+            # 生成随机旋转角度（x, y, z轴）
+            rotate_angles = (
+                random.uniform(0, max_rotation),
+                random.uniform(0, max_rotation),
+                random.uniform(0, max_rotation),
+            )
+
+            # 生成形状
+            shape_array, shape_dims = gen_shape(shape, param, rotate_angles)
+
+            # 计算形状在体素空间中的可能放置范围
+            max_pos = [voxel_size[i] - shape_dims[i] for i in range(3)]
+            if any(dim <= 0 for dim in max_pos):
+                continue  # 形状太大，无法放入体素空间
+
+            # 随机选择放置位置
+            pos = (
+                random.randint(0, max_pos[0]),
+                random.randint(0, max_pos[1]),
+                random.randint(0, max_pos[2]),
+            )
+
+            # 检查与已有形状的重叠
+            # 获取当前形状在体素空间中的区域
+            x_slice = slice(pos[0], pos[0] + shape_dims[0])
+            y_slice = slice(pos[1], pos[1] + shape_dims[1])
+            z_slice = slice(pos[2], pos[2] + shape_dims[2])
+
+            # 检查重叠（1表示已有形状）
+            if np.any(voxel_volume[x_slice, y_slice, z_slice] != 0):
+                continue  # 有重叠，尝试新位置
+
+            # 放置形状（使用唯一ID标记不同形状）
+            voxel_volume[x_slice, y_slice, z_slice] = 1
+            shapes_info.append(
+                {
+                    "id": shape_id,
+                    "type": shape,
+                    "param": param,
+                    "position": pos,
+                    "rotation": rotate_angles,
+                    "dimensions": shape_dims,
+                }
+            )
+            placed = True
+            break
+
+        if not placed:
+            print(f"警告：无法放置第{shape_id}个形状（可能空间不足或尝试次数过多）")
+
+    return voxel_volume, shapes_info
 
 
 def gen_volume_and_media(area, save_dir="./"):

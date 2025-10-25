@@ -18,6 +18,7 @@ ct_mouse_data/
 *.npy
 2025*/
 green*/
+only_for_test/
 
 # Virtual environments
 .venv

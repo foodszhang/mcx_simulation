@@ -4,6 +4,7 @@ import os
 
 from simple_gen import gen_shape, gen_volume_and_media
 from vis_3d import visualize_3d_array
+from simple_gen import generate_multiple_shapes
 
 
 from datetime import datetime
@@ -52,51 +53,26 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             "DT": 5.0e-09,
         }
 
-        source_shape_list = ["sphere", "cube", "cylinder"]
-        source_type = source_shape_list[random.randint(0, len(source_shape_list) - 1)]
-        # source_type = "cylinder"
-        if source_type == "sphere":
-            radius = random.randint(4, 14)
-
-            source_filename = f"{source_type}-{radius}.bin"
-            source, source_shape = gen_shape(source_type, radius, (0, 0, 0))
-        elif source_type == "cube":
-            size = random.randint(4, 14)
-            rotate_angles = (
-                random.randint(0, 90),
-                random.randint(0, 90),
-                random.randint(0, 90),
-            )
-            source_filename = f"{source_type}-{size}.bin"
-            source, source_shape = gen_shape(source_type, size, rotate_angles)
-        elif source_type == "cylinder":
-            height = random.randint(7, 14)
-            radius = random.randint(5, 14)
-            rotate_angles = (
-                random.randint(0, 90),
-                random.randint(0, 90),
-                random.randint(0, 90),
-            )
-            rotate_angles = [30, 0, 0]
-            source, source_shape = gen_shape(
-                source_type, (radius, height), rotate_angles
-            )
-            source_filename = f"{source_type}-{radius}-{height}.bin"
-
+        source_filename = f"source-{i}.bin"
+        range_x = (60, 120)
+        range_y = (40, 140)
+        range_z = (96, 130)
+        voxel_size = (
+            range_x[1] - range_x[0],
+            range_y[1] - range_y[0],
+            range_z[1] - range_z[0],
+        )
+        source, shapes = generate_multiple_shapes(voxel_size, 2, max_rotation=30)
         full_source_filename = os.path.join(each_save_dir, source_filename)
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
 
         ###TODO: 更智能的选择
-        rand_x = random.randint(70, 100)
-        rand_y = random.randint(20, 100)
-        rand_z = random.randint(80, 100)
-        ####[182, 164, 210]
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
         source_in_vol[
-            rand_x : rand_x + source_shape[0],
-            rand_y : rand_y + source_shape[1],
-            rand_z : rand_z + source_shape[2],
+            range_x[0] : range_x[1],
+            range_y[0] : range_y[1],
+            range_z[0] : range_z[1],
         ] = source
         source_in_vol_filename = "source_in_vol.npy"
         full_source_in_vol_filename = os.path.join(
@@ -114,18 +90,18 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
         Optode = {
             "Source": {
-                "Pos": [rand_x, rand_y, rand_z],
+                "Pos": [range_x[0], range_y[0], range_z[0]],
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 # 光源维度
                 "Pattern": {
-                    "Nx": source_shape[0],
-                    "Ny": source_shape[1],
-                    "Nz": source_shape[2],
+                    "Nx": voxel_size[0],
+                    "Ny": voxel_size[1],
+                    "Nz": voxel_size[2],
                     "Data": f"{source_filename}",
                 },
                 # 光源在维度下的分布， 值代表权重
-                "Param1": source_shape,
+                "Param1": voxel_size,
             }
         }
         config["Domain"] = Domain

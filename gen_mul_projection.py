@@ -172,7 +172,7 @@ def generate_projection_view_matrix(
             pixel_v = int((v + height_phys / 2) / pixel_to_phys_y)
 
             # 修正上下颠倒
-            pixel_v = height_pixels - 1 - pixel_v
+            # pixel_v = height_pixels - 1 - pixel_v
 
             if 0 <= pixel_u < width_pixels and 0 <= pixel_v < height_pixels:
                 if depth_val < depth_map[pixel_v, pixel_u]:
@@ -254,15 +254,13 @@ class VolumeProjector:
                 dtype=np.float32,
             )
 
-            im1 = ax1.imshow(projection, cmap="hot", origin="lower", extent=extent)
+            im1 = ax1.imshow(projection, cmap="hot", extent=extent)
             ax1.set_title(f"投影视图 {angle}°")
             plt.colorbar(im1, ax=ax1, fraction=0.046)
 
             depth_display = depth_map.copy()
             depth_display[depth_display == np.inf] = 0
-            im2 = ax2.imshow(
-                depth_display, cmap="viridis", origin="lower", extent=extent
-            )
+            im2 = ax2.imshow(depth_display, cmap="viridis", extent=extent)
             ax2.set_title(f"深度图 {angle}°")
             plt.colorbar(im2, ax=ax2, fraction=0.046)
 

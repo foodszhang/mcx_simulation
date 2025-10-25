@@ -261,7 +261,7 @@ def generate_multiple_shapes(
                 continue  # 有重叠，尝试新位置
 
             # 放置形状（使用唯一ID标记不同形状）
-            voxel_volume[x_slice, y_slice, z_slice] = 1
+            voxel_volume[x_slice, y_slice, z_slice] += shape_array
             shapes_info.append(
                 {
                     "id": shape_id,

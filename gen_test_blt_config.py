@@ -16,7 +16,7 @@ current_date = datetime.now()
 
 # 格式化为 ymd 形式（例如：20250924）
 today_ymd = current_date.strftime("%Y%m%d")
-random.seed(42)
+random.seed(99)
 
 
 def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
@@ -62,7 +62,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             range_y[1] - range_y[0],
             range_z[1] - range_z[0],
         )
-        source, shapes = generate_multiple_shapes(voxel_size, 2, max_rotation=30)
+        source, shapes = generate_multiple_shapes(voxel_size, 1, max_rotation=30)
         full_source_filename = os.path.join(each_save_dir, source_filename)
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
@@ -73,7 +73,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             range_x[0] : range_x[1],
             range_y[0] : range_y[1],
             range_z[0] : range_z[1],
-        ] = source
+        ] = np.where(source > 0, 1, 0)
         source_in_vol_filename = "source_in_vol.npy"
         full_source_in_vol_filename = os.path.join(
             each_save_dir, source_in_vol_filename
@@ -114,4 +114,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(2000)
+    gen_multi_single_blt_config(1000)

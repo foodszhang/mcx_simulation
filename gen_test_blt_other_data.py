@@ -7,13 +7,14 @@ import concurrent.futures
 from gen_mul_projection import generate_projection_view_matrix
 
 
-def gen_other(entry_path, entry, tag_mat):
+def gen_other(entry_path, entry):
     result_file = os.path.join(entry_path, f"{entry}.jnii")
     if not os.path.exists(result_file):
         raise Exception(f"{result_file} 未生成！")
     # tag_mat = np.fromfile("../volume_brain.bin")
     # TODO: 这里硬编码了， 改日再改吧
     full_data = jd.loadjd(result_file)
+    print("55555", entry)
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
@@ -54,9 +55,10 @@ def process_folders(root_dir):
 
     # 遍历根目录下的所有条目
     #
-    tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
-    tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([182, 164, 210])
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+    # tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
+    # tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape([182, 164, 210])
+    # executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+    executor = concurrent.futures.ProcessPoolExecutor(max_workers=4)
     results = []
     for entry in os.listdir(root_dir):
         entry_path = os.path.join(root_dir, entry)
@@ -80,7 +82,9 @@ def process_folders(root_dir):
                     raise Exception(f"{result_file} 未生成！")
                 # tag_mat = np.fromfile("../volume_brain.bin")
                 # TODO: 这里硬编码了， 改日再改吧
-                fut = executor.submit(gen_other, entry_path, entry, tag_mat)
+                fut = executor.submit(gen_other, entry_path, entry)
+                # gen_other(entry_path, entry)
+                # print("555555", entry)
                 results.append(fut)
 
             except subprocess.CalledProcessError as e:
@@ -97,5 +101,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251024/"
+    root_directory = "./20251027"
     process_folders(root_directory)

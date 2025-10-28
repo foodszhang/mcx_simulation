@@ -175,9 +175,9 @@ def generate_projection_view_matrix(
             # pixel_v = height_pixels - 1 - pixel_v
 
             if 0 <= pixel_u < width_pixels and 0 <= pixel_v < height_pixels:
-                if depth_val < depth_map[pixel_v, pixel_u]:
-                    depth_map[pixel_v, pixel_u] = depth_val
-                    projection[pixel_v, pixel_u] = values_array[idx]
+                if depth_val < depth_map[pixel_u, pixel_v]:
+                    depth_map[pixel_u, pixel_v] = depth_val
+                    projection[pixel_u, pixel_v] = values_array[idx]
 
     return projection, depth_map
 

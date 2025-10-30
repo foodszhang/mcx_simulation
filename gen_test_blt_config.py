@@ -68,7 +68,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
         print("566666", source.dtype, source.shape)
-        source = sourcen.transpose(2, 1, 0)
+        source = source.transpose(2, 1, 0)
 
         ###TODO: 更智能的选择
         # 区域

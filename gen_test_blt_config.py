@@ -63,22 +63,27 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             range_y[1] - range_y[0],
             range_z[1] - range_z[0],
         )
-        source, shapes = generate_multiple_shapes(voxel_size, 1, max_rotation=30)
+        source, shapes = generate_multiple_shapes(voxel_size, 3, max_rotation=30)
         full_source_filename = os.path.join(each_save_dir, source_filename)
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
+        print("55555", source.shape)
+        # source_fortran = np.asfortranarray(source)
+        # source_fortran.tofile(full_source_filename)
+        source = source.transpose(2, 1, 0)
 
         ###TODO: 更智能的选择
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
         source_in_vol[
-            range_x[0] : range_x[1],
-            range_y[0] : range_y[1],
             range_z[0] : range_z[1],
+            range_y[0] : range_y[1],
+            range_x[0] : range_x[1],
         ] = np.where(source > 0.5, 1, 0)
-        source_in_vol_filename = "source_in_vol.npy"
+        source_in_vol_filename = "source_in_vol.bin"
         full_source_in_vol_filename = os.path.join(
             each_save_dir, source_in_vol_filename
         )
+        source_in_vol.tofile(full_source_in_vol_filename)
 
         # source
         # np.save(full_source_in_vol_filename, source_in_vol)
@@ -91,19 +96,19 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
         Optode = {
             "Source": {
-                "Pos": [range_x[0], range_y[0], range_z[0]],
-                # "Dir": [0, 0, 1, "_NaN_"],
-                "Dir": [0, 0, 1],
+                "Pos": [range_z[0], range_y[0], range_x[0]],
+                "Dir": [0, 0, 1, "_NaN_"],
+                # "Dir": [0, 0, 1],
                 "Type": "pattern3d",
                 # 光源维度
                 "Pattern": {
                     "Nx": voxel_size[0],
                     "Ny": voxel_size[1],
-                    "Nz": voxel_size[2],
                     "Data": f"{source_filename}",
+                    "Nz": voxel_size[2],
                 },
                 # 光源在维度下的分布， 值代表权重
-                "Param1": voxel_size,
+                "Param1": (voxel_size[2], voxel_size[1], voxel_size[0]),
             }
         }
         config["Domain"] = Domain
@@ -127,4 +132,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(20)
+    gen_multi_single_blt_config(2)

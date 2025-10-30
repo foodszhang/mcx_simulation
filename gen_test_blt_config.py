@@ -54,9 +54,9 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         }
 
         source_filename = f"source-{i}.bin"
-        range_x = (50, 120)
+        range_z = (50, 120)
         range_y = (160, 280)
-        range_z = (96, 140)
+        range_x = (96, 140)
         voxel_size = (
             range_x[1] - range_x[0],
             range_y[1] - range_y[0],
@@ -68,15 +68,16 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         source = source.astype(np.float32)
         source.tofile(full_source_filename)
         print("566666", source.dtype, source.shape)
+        source = sourcen.transpose(2, 1, 0)
 
         ###TODO: 更智能的选择
         # 区域
 
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
         source_in_vol[
-            range_x[0] : range_x[1],
-            range_y[0] : range_y[1],
             range_z[0] : range_z[1],
+            range_y[0] : range_y[1],
+            range_x[0] : range_x[1],
         ] = source
         source_in_vol_filename = "source_in_vol.npy"
         full_source_in_vol_filename = os.path.join(
@@ -105,7 +106,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
                     "Data": f"{source_filename}",
                 },
                 # 光源在维度下的分布， 值代表权重
-                "Param1": voxel_size,
+                "Param1": (voxel_size[2], voxel_size[1], voxel_size[0]),
             }
         }
         config["Domain"] = Domain

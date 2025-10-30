@@ -55,9 +55,9 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         }
 
         source_filename = f"source-{i}.bin"
-        range_x = (60, 120)
+        range_z = (60, 120)
         range_y = (40, 140)
-        range_z = (96, 130)
+        range_x = (96, 130)
         voxel_size = (
             range_x[1] - range_x[0],
             range_y[1] - range_y[0],

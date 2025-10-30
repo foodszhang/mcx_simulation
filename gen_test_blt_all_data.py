@@ -29,7 +29,9 @@ def process_folders(root_dir):
         if os.path.isdir(entry_path) and entry.isdigit():
             # 构建要执行的命令
             json_file = f"{entry}.json"
+            no_json_file = f"no_{entry}.json"
             json_path = os.path.join(entry_path, json_file)
+            no_json_path = os.path.join(entry_path, no_json_file)
 
             # 检查JSON文件是否存在
             if not os.path.exists(json_path):
@@ -57,7 +59,27 @@ def process_folders(root_dir):
                 # 这里可以添加命令执行成功后的其他操作
                 # 例如: 处理输出文件、记录日志等
                 result_file = os.path.join(entry_path, f"{entry}.jnii")
+
                 if not os.path.exists(result_file):
+                    print(f"执行命令: mcx -f {json_file} -a 1 在 {entry_path}")
+
+                # 执行命令并等待完成
+                result = subprocess.run(
+                    ["mcx", "-f", no_json_file, "-a", "1"],
+                    cwd=entry_path,  # 在子文件夹中执行命令
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+                # 命令成功执行后要做的事情
+                print(f"命令成功完成，输出: {result.stdout}")
+
+                # 这里可以添加命令执行成功后的其他操作
+                # 例如: 处理输出文件、记录日志等
+                result_file = os.path.join(entry_path, f"{entry}.jnii")
+                if not os.path.exists(result_file):
+                    raise Exception(f"{result_file} 未生成！")
                     raise Exception(f"{result_file} 未生成！")
                 # tag_mat = np.fromfile("../volume_brain.bin")
                 # TODO: 这里硬编码了， 改日再改吧
@@ -84,5 +106,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251027/"
+    root_directory = "./20251030/"
     process_folders(root_directory)

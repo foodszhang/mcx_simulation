@@ -7,6 +7,40 @@ import concurrent.futures
 from gen_mul_projection import generate_projection_view_matrix
 
 
+def gen_no_other(entry_path, entry):
+    result_file = os.path.join(entry_path, f"no_{entry}.jnii")
+    if not os.path.exists(result_file):
+        raise Exception(f"{result_file} 未生成！")
+    # tag_mat = np.fromfile("../volume_brain.bin")
+    # TODO: 这里硬编码了， 改日再改吧
+    full_data = jd.loadjd(result_file)
+    if len(full_data["NIFTIData"].shape) == 3:
+        flux = full_data["NIFTIData"][:, :, :]
+    else:
+        flux = full_data["NIFTIData"][:, :, :, 0, 0]
+    proj_data_path = os.path.join(entry_path, f"no_proj.npz")
+    dep_proj_data_path = os.path.join(entry_path, f"no_dep_proj.npz")
+
+    # flux_proj = get_multi_direction_projections(flux, tag_mat)
+
+    flux_proj = {}
+    depth_proj = {}
+    for angle in [-90, -60, -30, 0, 30, 60, 90]:
+        proj, depth = generate_projection_view_matrix(
+            flux,
+            angle,
+            200,
+            (256, 256),
+            (256, 256),
+        )
+        flux_proj[f"{angle}"] = proj
+        depth_proj[f"{angle}"] = depth
+
+    np.savez(proj_data_path, **flux_proj)
+    np.savez(dep_proj_data_path, **flux_proj)
+    return 0
+
+
 def gen_other(entry_path, entry):
     result_file = os.path.join(entry_path, f"{entry}.jnii")
     if not os.path.exists(result_file):
@@ -39,6 +73,12 @@ def gen_other(entry_path, entry):
 
     np.savez(proj_data_path, **flux_proj)
     np.savez(dep_proj_data_path, **flux_proj)
+    return 0
+
+
+def gen_other_all(entry_path, entry):
+    gen_other(entry_path, entry)
+    gen_no_other(entry_path, entry)
     return 0
 
 
@@ -82,7 +122,7 @@ def process_folders(root_dir):
                     raise Exception(f"{result_file} 未生成！")
                 # tag_mat = np.fromfile("../volume_brain.bin")
                 # TODO: 这里硬编码了， 改日再改吧
-                fut = executor.submit(gen_other, entry_path, entry)
+                fut = executor.submit(gen_other_all, entry_path, entry)
                 # gen_other(entry_path, entry)
                 # print("555555", entry)
                 results.append(fut)
@@ -101,5 +141,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251027"
+    root_directory = "./20251030"
     process_folders(root_directory)

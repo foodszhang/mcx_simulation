@@ -314,7 +314,7 @@ if __name__ == "__main__":
     print("预编译Numba函数...")
     import jdata as jd
 
-    full_data = jd.loadjd("./20251021/0/0.jnii")
+    full_data = jd.loadjd("./20251030/2/no_2.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:

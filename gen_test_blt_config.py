@@ -5,6 +5,7 @@ import os
 from simple_gen import gen_shape, gen_volume_and_media
 from vis_3d import visualize_3d_array
 from simple_gen import generate_multiple_shapes
+from copy import deepcopy
 
 
 from datetime import datetime
@@ -73,7 +74,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
             range_x[0] : range_x[1],
             range_y[0] : range_y[1],
             range_z[0] : range_z[1],
-        ] = np.where(source > 0, 1, 0)
+        ] = np.where(source > 0.5, 1, 0)
         source_in_vol_filename = "source_in_vol.npy"
         full_source_in_vol_filename = os.path.join(
             each_save_dir, source_in_vol_filename
@@ -91,7 +92,8 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         Optode = {
             "Source": {
                 "Pos": [range_x[0], range_y[0], range_z[0]],
-                "Dir": [0, 0, 1, "_NaN_"],
+                # "Dir": [0, 0, 1, "_NaN_"],
+                "Dir": [0, 0, 1],
                 "Type": "pattern3d",
                 # 光源维度
                 "Pattern": {
@@ -109,9 +111,20 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         config["Forward"] = Forward
         config["Optode"] = Optode
         save_file = os.path.join(each_save_dir, f"{i}.json")
+        save_nos_file = os.path.join(each_save_dir, f"no_{i}.json")
+
         with open(save_file, "w") as f:
+            json.dump(config, f)
+        no_media = deepcopy(media)
+        for me in no_media:
+            me["mus"] = 0.0
+        no_config = deepcopy(config)
+        config["Domain"]["Media"] = no_media
+        config["Session"]["ID"] = f"no_{session}"
+
+        with open(save_nos_file, "w") as f:
             json.dump(config, f)
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(1000)
+    gen_multi_single_blt_config(20)

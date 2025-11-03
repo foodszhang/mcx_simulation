@@ -129,9 +129,9 @@ def display_multiple_heatmaps(
 # 使用示例
 if __name__ == "__main__":
     # 示例1: 基本用法
-    npz_path = "./20251030/2/proj.npz"
+    npz_path = "./two_source_val/0/proj.npz"
     display_npz_heatmaps(npz_path, cmap="hot")
-    no_npz_path = "./20251030/2/no_proj.npz"
+    no_npz_path = "./two_source_val/0/no_proj.npz"
     display_npz_heatmaps(no_npz_path, cmap="hot")
 
     # 示例2: 保存图片并使用不同颜色映射

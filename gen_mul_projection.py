@@ -314,7 +314,7 @@ if __name__ == "__main__":
     print("预编译Numba函数...")
     import jdata as jd
 
-    full_data = jd.loadjd("./20251030/2/no_2.jnii")
+    full_data = jd.loadjd("./two_source_train/2/2.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
@@ -336,5 +336,5 @@ if __name__ == "__main__":
         view_angles=[-90, -30, -60, 0, 30, 60, 90],
         camera_distance=200,
         detector_resolution=(256, 256),
-        detector_size=(256, 256),
+        detector_size=(256, 300),
     )

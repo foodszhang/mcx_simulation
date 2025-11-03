@@ -20,6 +20,7 @@ ct_mouse_data/
 green*/
 only_for_test/
 one_source*/
+two_source*/
 preproces*/
 # Virtual environments
 .venv

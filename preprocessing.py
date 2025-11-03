@@ -109,7 +109,7 @@ def preprocess_voxel_blocks(
 # 预处理示例
 if __name__ == "__main__":
     preprocess_voxel_blocks(
-        voxel_grid_path="./20251027/volume_brain.npy",  # 原始体素网格
+        voxel_grid_path="./two_source_train/volume_brain.npy",  # 原始体素网格
         save_dir="preprocessed_blocks",  # 块保存目录
         x_range=[40, 120],  # 可行域x范围
         y_range=[20, 140],  # 可行域y范围

@@ -215,6 +215,7 @@ def generate_multiple_shapes(
         for _ in range(100):
             # 随机选择形状类型
             shape = random.choice(shape_types)
+            shape = "cylinder"
 
             # 根据形状类型生成随机参数
             if shape == "sphere":
@@ -226,7 +227,9 @@ def generate_multiple_shapes(
             elif shape == "cylinder":
                 radius = random.randint(min_param, max_param)
                 height = random.randint(min_param * 2, max_param * 2)
+                height = 5 * radius
                 param = (radius, height)
+                print("66666", radius, height)
 
             # 生成随机旋转角度（x, y, z轴）
             rotate_angles = (

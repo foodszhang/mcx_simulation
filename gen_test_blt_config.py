@@ -131,4 +131,4 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
 
 if __name__ == "__main__":
-    gen_multi_single_blt_config(10)
+    gen_multi_single_blt_config(1)

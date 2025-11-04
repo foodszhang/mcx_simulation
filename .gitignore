@@ -22,5 +22,8 @@ only_for_test/
 one_source*/
 two_source*/
 preproces*/
+*.mat
+*.npz
+zhao*/
 # Virtual environments
 .venv

@@ -24,3 +24,6 @@ two_source*/
 preproces*/
 # Virtual environments
 .venv
+*.npz
+*.mat
+zhao*/

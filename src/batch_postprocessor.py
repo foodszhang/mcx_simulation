@@ -2,9 +2,9 @@ import subprocess
 import os
 import jdata as jd
 import numpy as np
-from get_simple_projection import get_projections, get_multi_direction_projections
+from tools.get_simple_projection import get_projections, get_multi_direction_projections
 import concurrent.futures
-from gen_mul_projection import generate_projection_view_matrix
+from .gen_mul_projection import generate_projection_view_matrix
 
 
 def gen_no_other(entry_path, entry):

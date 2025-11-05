@@ -25,8 +25,15 @@ DATE_STRING = datetime.now().strftime("%Y%m%d")
 
 
 def generate_multi_blt_config(
-    num_configs=200, output_dir=f"./{DATE_STRING}", config=config
+    num_configs=200, output_dir=f"./{DATE_STRING}", config=None
 ):
+    """
+    批量生成单次光学仿真配置文件，所有参数统一由主流程传入的config字典驱动，避免独立读取。
+    :param num_configs: 生成配置的数量
+    :param output_dir: 配置文件保存目录
+    :param config: 全局配置参数，由main.py主流程传入
+    """
+    assert config is not None, "必须由主流程指定配置config，禁止在此处独立加载！"
     """
     批量生成单次光学仿真配置文件，所有参数统一由config.yaml读取（见src/load_config.py），方便医学/科研人员调整
     :param num_configs: 生成配置的数量

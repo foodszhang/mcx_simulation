@@ -4,7 +4,7 @@ import jdata as jd
 import numpy as np
 
 
-def batch_run_mcx_simulations(root_folder: str) -> None:
+def batch_run_mcx_simulations(root_folder: str, config) -> None:
     """
     批量遍历根目录，自动进入所有数字命名的子目录，批量执行mcx命令并保存仿真结果。
 

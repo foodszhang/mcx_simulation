@@ -1,10 +1,23 @@
 import subprocess
 import os
 import jdata as jd
+import yaml  # 用于读取 config/config.yaml
 import numpy as np
-from tools.get_simple_projection import get_projections, get_multi_direction_projections
 import concurrent.futures
 from .gen_mul_projection import generate_projection_view_matrix
+
+
+# 读取全局配置文件（config/config.yaml）
+def load_config(config_path="config/config.yaml"):
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+config = load_config()
+PROJ_CFG = config.get("projection", {})
+ANGLES = PROJ_CFG.get("angles", [-90, -60, -30, 0, 30, 60, 90])
+DETECTORS = PROJ_CFG.get("detectors", [1])
+FILENAME_PATTERN = PROJ_CFG.get("filename_pattern", "proj_{angle}deg_det{det}.npz")
 
 
 def gen_no_other(entry_path, entry):
@@ -82,7 +95,13 @@ def gen_other_all(entry_path, entry):
     return 0
 
 
-def process_folders(root_dir):
+def process_folders(root_dir, config):
+    """
+    遍历根目录，进入所有数字命名的子文件夹并执行mcx命令，实现批量后处理。所有流程参数均由主流程传入的config字典驱动，避免局部硬编码。
+    参数:
+    root_dir: 要遍历的根目录路径
+    config: 全局流程配置（由main.py集中加载并统一下发）
+    """
     """
     遍历根目录，进入所有数字命名的子文件夹并执行mcx命令
 
@@ -141,5 +160,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251103"
-    process_folders(root_directory)
+    root_directory = "./20251105"
+    process_folders(root_directory, config=config)

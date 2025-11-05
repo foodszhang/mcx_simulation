@@ -7,20 +7,75 @@ import concurrent.futures
 from .gen_mul_projection import generate_projection_view_matrix
 
 
-# 读取全局配置文件（config/config.yaml）
-def load_config(config_path="config/config.yaml"):
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+# 通用投影函数（标准/无散射，通过sim_type参数控制）
+def format_filename(template, _id):
+    return template.format(id=_id)
 
 
-config = load_config()
-PROJ_CFG = config.get("projection", {})
-ANGLES = PROJ_CFG.get("angles", [-90, -60, -30, 0, 30, 60, 90])
-DETECTORS = PROJ_CFG.get("detectors", [1])
-FILENAME_PATTERN = PROJ_CFG.get("filename_pattern", "proj_{angle}deg_det{det}.npz")
+def generate_projection(entry_path, entry, config, sim_type="normal"):
+    """
+    通用投影生成函数，根据sim_type区分标准仿真/无散射仿真
+    参数:
+        entry_path: 当前数据子目录路径
+        entry: 样本编号/子目录名
+        config: 总流程配置（由主流程入口参数层层透传）
+        sim_type: 仿真类型，可取"normal"(标准)或"no_scatter"(无散射，mus=0)
+    """
+    file_naming = config.get(
+        "file_naming",
+        {
+            "normal": {"config": "{id}.json", "result": "{id}.jnii"},
+            "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"},
+        },
+    )
+    proj_params = config.get("projection", {})
+    if sim_type == "no_scatter":
+        result_file = os.path.join(
+            entry_path, format_filename(file_naming["noscatter"]["result"], entry)
+        )
+        proj_data_path = os.path.join(entry_path, f"no_proj.npz")
+        dep_proj_data_path = os.path.join(entry_path, f"no_dep_proj.npz")
+    else:
+        result_file = os.path.join(
+            entry_path, format_filename(file_naming["normal"]["result"], entry)
+        )
+        proj_data_path = os.path.join(entry_path, f"proj.npz")
+        dep_proj_data_path = os.path.join(entry_path, f"dep_proj.npz")
+    if not os.path.exists(result_file):
+        raise Exception(f"{result_file} 未生成！")
+    full_data = jd.loadjd(result_file)
+    if len(full_data["NIFTIData"].shape) == 3:
+        flux = full_data["NIFTIData"][:, :, :]
+    else:
+        flux = full_data["NIFTIData"][:, :, :, 0, 0]
+    # 投影参数均从主流程透传的proj_params内读取，彻底去除硬编码
+    angles = proj_params.get("angles", [-90, -60, -30, 0, 30, 60, 90])
+    det_res = tuple(proj_params.get("detector_resolution", (256, 256)))
+    flux_proj = {}
+    depth_proj = {}
+    for angle in angles:
+        proj, depth = generate_projection_view_matrix(
+            flux,
+            angle,
+            200,
+            det_res,
+            det_res,
+        )
+        flux_proj[f"{angle}"] = proj
+        depth_proj[f"{angle}"] = depth
+    np.savez(proj_data_path, **flux_proj)
+    np.savez(dep_proj_data_path, **flux_proj)
+    return 0
 
 
-def gen_no_other(entry_path, entry):
+def gen_no_other(entry_path, entry, proj_params):
+    """
+    该函数根据主配置参数（proj_params，来自config["projection"]）进行无散射投影矩阵生成
+    参数:
+        entry_path: 当前数据子目录路径
+        entry: 当前子目录/样本编号
+        proj_params: 包含angles、detectors和尺寸的投影配置字典（来自总config的projection）
+    """
     result_file = os.path.join(entry_path, f"no_{entry}.jnii")
     if not os.path.exists(result_file):
         raise Exception(f"{result_file} 未生成！")
@@ -36,15 +91,18 @@ def gen_no_other(entry_path, entry):
 
     # flux_proj = get_multi_direction_projections(flux, tag_mat)
 
+    # 投影参数均从主流程透传的proj_params内读取，彻底去除硬编码
     flux_proj = {}
     depth_proj = {}
-    for angle in [-90, -60, -30, 0, 30, 60, 90]:
+    angles = proj_params.get("angles", [-90, -60, -30, 0, 30, 60, 90])
+    det_res = tuple(proj_params.get("detector_resolution", (256, 256)))
+    for angle in angles:
         proj, depth = generate_projection_view_matrix(
             flux,
             angle,
             200,
-            (256, 256),
-            (256, 256),
+            det_res,
+            det_res,
         )
         flux_proj[f"{angle}"] = proj
         depth_proj[f"{angle}"] = depth
@@ -54,7 +112,14 @@ def gen_no_other(entry_path, entry):
     return 0
 
 
-def gen_other(entry_path, entry):
+def gen_other(entry_path, entry, proj_params):
+    """
+    该函数基于主流程下发的proj_params（即config['projection']）进行标准体积仿真投影生成。
+    参数:
+        entry_path: 数据子目录路径
+        entry: 当前子目录编号
+        proj_params: 投影视角等配置参数，均由主流程集中传递，典型键如angles, detectors, resolution, output_pattern等
+    """
     result_file = os.path.join(entry_path, f"{entry}.jnii")
     if not os.path.exists(result_file):
         raise Exception(f"{result_file} 未生成！")
@@ -89,9 +154,18 @@ def gen_other(entry_path, entry):
     return 0
 
 
-def gen_other_all(entry_path, entry):
-    gen_other(entry_path, entry)
-    gen_no_other(entry_path, entry)
+def gen_other_all(entry_path, entry, config):
+    """
+    综合调用通用投影函数，先标准仿真后无散射，配置参数由主流程集中透传。
+    参数：
+        entry_path: 当前样本子目录路径
+        entry: 当前子目录编号
+        config: 主流程集中下发的完整配置参数
+    """
+    # 标准仿真流程
+    generate_projection(entry_path, entry, config, sim_type="normal")
+    # 无散射仿真流程
+    generate_projection(entry_path, entry, config, sim_type="no_scatter")
     return 0
 
 
@@ -141,9 +215,9 @@ def process_folders(root_dir, config):
                     raise Exception(f"{result_file} 未生成！")
                 # tag_mat = np.fromfile("../volume_brain.bin")
                 # TODO: 这里硬编码了， 改日再改吧
-                fut = executor.submit(gen_other_all, entry_path, entry)
-                # gen_other(entry_path, entry)
-                # print("555555", entry)
+                # === 递进式参数化传递主流程投影配置 ===
+                proj_params = config.get("projection", {})
+                fut = executor.submit(gen_other_all, entry_path, entry, proj_params)
                 results.append(fut)
 
             except subprocess.CalledProcessError as e:

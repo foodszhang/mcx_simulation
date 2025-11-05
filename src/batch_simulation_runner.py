@@ -4,7 +4,7 @@ import jdata as jd
 import numpy as np
 
 
-def batch_run_mcx_simulations(root_folder: str, config) -> None:
+def batch_run_mcx_simulations(root_folder: str) -> None:
     """
     批量遍历根目录，自动进入所有数字命名的子目录，批量执行mcx命令并保存仿真结果。
 
@@ -55,19 +55,37 @@ def batch_run_mcx_simulations(root_folder: str, config) -> None:
         raise FileNotFoundError(f"volume_brain.bin 不存在于 {root_folder}")
 
     # 预加载体标签矩阵，方便后续复用
-    volume_tags = np.fromfile(volume_bin_path, dtype=np.uint8).reshape([182, 164, 210])
+    # —— 体标签文件reshape改为自动读取全局config中的volume_shape ——
+    volume_shape = config.get("volume_shape", [182, 164, 210])
+    assert (
+        isinstance(volume_shape, (list, tuple)) and len(volume_shape) == 3
+    ), "config['volume_shape']格式错误，需为三元组/list"
+    volume_tags = np.fromfile(volume_bin_path, dtype=np.uint8).reshape(
+        volume_shape
+    )  # 自动编码shape，推荐仅在主流程入口传递config
     volume_npy_path = os.path.join(root_folder, "volume_brain.npy")
     if not os.path.exists(volume_npy_path):
         np.save(volume_npy_path, volume_tags)
 
     # ---- 子文件夹批量处理 ----
+    def format_filename(template, _id):
+        return template.format(id=_id)
+
+    file_naming = config.get(
+        "file_naming",
+        {
+            "normal": {"config": "{id}.json", "result": "{id}.jnii"},
+            "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"},
+        },
+    )
+
     for sub_name in os.listdir(root_folder):
         sub_folder = os.path.join(root_folder, sub_name)
 
         # 只处理纯数字命名的目录
         if os.path.isdir(sub_folder) and sub_name.isdigit():
             # 配置文件路径
-            json_normal = f"{sub_name}.json"
+            json_normal = format_filename(file_naming["normal"]["config"], sub_name)
             path_json_normal = os.path.join(sub_folder, json_normal)
 
             # 校验标准JSON配置存在，否则跳过
@@ -75,7 +93,9 @@ def batch_run_mcx_simulations(root_folder: str, config) -> None:
                 print(f"警告: 缺少 {json_normal}，跳过 {sub_folder}")
                 continue
 
-            result_jnii_path = os.path.join(sub_folder, f"{sub_name}.jnii")
+            result_jnii_path = os.path.join(
+                sub_folder, format_filename(file_naming["normal"]["result"], sub_name)
+            )
             if os.path.exists(result_jnii_path):
                 # 已有仿真结果直接跳过提高性能
                 continue
@@ -96,22 +116,15 @@ def batch_run_mcx_simulations(root_folder: str, config) -> None:
                 if not os.path.exists(result_jnii_path):
                     raise RuntimeError(f"仿真结果未生成: {result_jnii_path}")
 
-                # ---- 结果数据加载与处理 ----
-                # sim_data = jd.loadjd(result_jnii_path)
-                # flux_map = (
-                #     sim_data["NIFTIData"]
-                #     if len(sim_data["NIFTIData"].shape) == 3
-                #     else sim_data["NIFTIData"][:, :, :, 0, 0]
-                # )
-                #
-                # 进一步的投影与后处理（根据具体需求修改）
-                # flux_npy_path = os.path.join(sub_folder, f"{sub_name}_flux.npy")
-                # np.save(flux_npy_path, flux_map)
-
                 # === 新增无散射仿真（mus=0）处理 ===
-                json_no_scatter = f"no_{sub_name}.json"
+                json_no_scatter = format_filename(
+                    file_naming["noscatter"]["config"], sub_name
+                )
                 path_json_no_scatter = os.path.join(sub_folder, json_no_scatter)
-                result_no_jnii_path = os.path.join(sub_folder, f"no_{sub_name}.jnii")
+                result_no_jnii_path = os.path.join(
+                    sub_folder,
+                    format_filename(file_naming["noscatter"]["result"], sub_name),
+                )
                 if os.path.exists(path_json_no_scatter):
                     if os.path.exists(result_no_jnii_path):
                         print(

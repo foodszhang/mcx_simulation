@@ -17,8 +17,8 @@ import numpy as np
 from datetime import datetime
 
 # 随机种子由配置文件读取，确保仿真结果可复现
-config = load_config()
-RANDOM_SEED = config.get("random_seed", 23)
+# 注意：config应始终由主流程入口传入，此处禁止文件顶部直接读取！
+RANDOM_SEED = 23  # 默认占位，实际运行请传递config
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 DATE_STRING = datetime.now().strftime("%Y%m%d")
@@ -64,9 +64,17 @@ def generate_multi_blt_config(
     src_range_x = config["src_range"]["x"]
     max_rotation = config["src_range"].get("max_rotation", 30)
 
+    def format_filename(template, _id):
+        return template.format(id=_id)
+
+    file_naming = config.get("file_naming", {
+        "normal": {"config": "{id}.json", "result": "{id}.jnii"},
+        "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"}
+    })
+
     for config_idx in range(num_configs):
         session_id = str(config_idx)
-        config_subdir = os.path.join(output_dir, f"{config_idx}")
+        config_subdir = os.path.join(output_dir, session_id)
         os.makedirs(config_subdir, exist_ok=True)
         config_dict = {}
 
@@ -80,7 +88,7 @@ def generate_multi_blt_config(
         }
 
         # --- Session 参数 ---
-        session = {"Photons": int(1e6), "RNGSeed": config_idx, "ID": session_id}
+        session = {"Photons": int(1e6), "RNGSeed": config_idx, "ID": format_filename(file_naming["normal"]["config"], session_id).replace('.json', '')}
         # --- Forward 参数：由config统一读取 ---
         forward = config.get("forward", {"T0": 0.0e00, "T1": 5.0e-09, "DT": 5.0e-09})
 
@@ -128,8 +136,9 @@ def generate_multi_blt_config(
         config_dict["Session"] = session
         config_dict["Forward"] = forward
         config_dict["Optode"] = optode
-        json_config_path = os.path.join(config_subdir, f"{config_idx}.json")
-        json_config_nos_path = os.path.join(config_subdir, f"no_{config_idx}.json")
+
+        # 标准仿真config和结果
+        json_config_path = os.path.join(config_subdir, format_filename(file_naming["normal"]["config"], session_id))
         # --- 保存标准仿真配置 ---
         with open(json_config_path, "w") as f:
             json.dump(config_dict, f, indent=2, ensure_ascii=False)
@@ -139,7 +148,9 @@ def generate_multi_blt_config(
             media_item["mus"] = 0.0
         config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media
-        config_no_scatter["Session"]["ID"] = f"no_{session_id}"
+        # 用noscatter中的模板名，Session.ID也和json名模板一致，不带后缀
+        config_no_scatter["Session"]["ID"] = format_filename(file_naming["noscatter"]["config"], session_id).replace('.json', '')
+        json_config_nos_path = os.path.join(config_subdir, format_filename(file_naming["noscatter"]["config"], session_id))
         with open(json_config_nos_path, "w") as f:
             json.dump(config_no_scatter, f, indent=2, ensure_ascii=False)
 

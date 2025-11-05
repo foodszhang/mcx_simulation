@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     # =========写入config.yaml供后续流程自动读取=========
     config_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../src/config.yaml")
+        os.path.join(os.path.dirname(__file__), "../config/config.yaml")
     )
     with open(config_path, "r", encoding="utf-8") as cf:
         all_config = yaml.safe_load(cf)

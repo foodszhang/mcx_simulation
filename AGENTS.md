@@ -47,7 +47,7 @@
 
 ## 4. 数据流与典型工作流
 ### 4.1 批量体积光学仿真与多视角投影自动生成流程
-该工作流横跨gen_test_blt_config.py、gen_test_blt_all_data.py、gen_test_blt_other_data.py等脚本，执行流程概述如下：
+该工作流横跨batch_config_generator.py、batch_simulation_runner.py、batch_postprocessor.py等脚本，执行流程概述如下：
 1. 通过`gen_test_blt_config.py`批量自动生成大规模医学成像/光学仿真配置文件，每条配置含介质分层、多参数扰动与noise策略。
 2. 用`gen_test_blt_all_data.py`批量遍历所有配置，自动调用MCX完成倒排体积光学仿真并批量存储结果，保障仿真可复现。
 3. 利用`gen_test_blt_other_data.py`对仿真输出数据进行多角度投影、深度特征矩阵等后处理，适配各类下游模型及可视化分析。

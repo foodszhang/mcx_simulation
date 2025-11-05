@@ -6,3 +6,4 @@
 
 - 在调用python时不能直接使用python， 而是使用uv run python
 - 添加python依赖时， 使用uv add 而不是pip install
+- 当前终端环境可能是cmd或者powershell，无法直接使用bash，考虑没有bash的情况

@@ -4,12 +4,13 @@ import jdata as jd
 import numpy as np
 
 
-def batch_run_mcx_simulations(root_folder: str) -> None:
+def batch_run_mcx_simulations(root_folder: str, config: dict) -> None:
     """
     批量遍历根目录，自动进入所有数字命名的子目录，批量执行mcx命令并保存仿真结果。
 
     参数:
         root_folder (str): 根目录路径。
+        config (dict): 全局配置参数，统一由主流程入口传入
     """
     import shutil  # 在函数体内部导入避免全局污染
 
@@ -157,6 +158,16 @@ def batch_run_mcx_simulations(root_folder: str) -> None:
 
 
 if __name__ == "__main__":
+    # 演示主流程，兼容独立脚本执行
+    # 临时读取配置文件，便于单文件测试
+    import yaml
+
+    # 这里默认读取 config/config.yaml，实际请根据需要变更
+    config_path = "config/config.yaml"
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"找不到配置文件: {config_path}")
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
     # 替换为你要遍历的根目录路径
     root_directory = "./20251103/"
-    batch_run_mcx_simulations(root_directory)
+    batch_run_mcx_simulations(root_directory, config)

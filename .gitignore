@@ -25,5 +25,6 @@ preproces*/
 *.mat
 *.npz
 zhao*/
+ouput/
 # Virtual environments
 .venv

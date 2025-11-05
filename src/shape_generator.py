@@ -155,6 +155,25 @@ def gen_shape(shape, param, rotate_angles):
                 if distance <= radius:
                     cylinder[x, y, :] = 1
         source_array = cylinder
+    # 椭球体生成：支持半长轴、半短轴与旋转输入
+    if shape == "ellipsoid":
+        rx, ry, rz = param
+        # 保证中心在体素数组中心
+        size_x = 2 * rx + 1
+        size_y = 2 * ry + 1
+        size_z = 2 * rz + 1
+        ellipsoid = np.zeros((size_x, size_y, size_z), dtype=int)
+        cx, cy, cz = rx, ry, rz
+        for x in range(size_x):
+            for y in range(size_y):
+                for z in range(size_z):
+                    dx = (x - cx) / rx
+                    dy = (y - cy) / ry
+                    dz = (z - cz) / rz
+                    # (dx,dy,dz)^2和为1的体素为椭球
+                    if dx**2 + dy**2 + dz**2 <= 1:
+                        ellipsoid[x, y, z] = 1
+        source_array = ellipsoid
     source_array, shape = rotate_shape(
         source_array, rotate_angles[0], rotate_angles[1], rotate_angles[2]
     )
@@ -177,13 +196,32 @@ def generate_multiple_shapes(
     voxel_volume = np.zeros(voxel_size, dtype=int)
     shapes_info = []
     if shape_types is None:
-        shape_types = ["sphere", "cube", "cylinder"]
+        shape_types = ["sphere", "cube", "cylinder", "ellipsoid"]  # 默认包含椭球体
+    # ==================== 注释说明 ====================
+    # 支持：sphere-球体  cube-立方体  cylinder-圆柱体  ellipsoid-三轴椭球体
+    # 其中 ellipsoid 的主轴:短轴比会自动在1.2~2随机，参数param=(rx,ry,rz)为半长轴长度
+    # 所有类型shape均可指定旋转角度与空间随机放置，结果详细记录位置、尺寸与参数
+    # ==================================================
     for shape_id in range(1, num_shapes + 1):
         placed = False
         for _ in range(100):
             shape = random.choice(shape_types)
-            # shape = "cylinder"  # 如有特殊需求请在外部参数控制
-            if shape == "sphere":
+            param = None
+            # 椭球单独取长短轴参数
+            if shape == "ellipsoid":
+                # 长轴 rx, 短轴 ry/rz，比例1.2~2
+                min_rx = int(min_param * 1.2)
+                max_rx = int(max_param * 2)
+                rx = random.randint(min_rx, max_rx)
+                # 保证 ry/rz 为短轴，且长短轴比满足1.2~2
+                axis_ratio = random.uniform(1.2, 2.0)
+                min_ry = max(int(rx / axis_ratio), min_param)
+                max_ry = min(rx, max_param)
+                # 随机取短轴长度，且不超过长轴
+                ry = random.randint(min_ry, max_ry)
+                rz = random.randint(min_ry, max_ry)
+                param = (rx, ry, rz)
+            elif shape == "sphere":
                 radius = random.randint(min_param, max_param)
                 param = radius
             elif shape == "cube":
@@ -194,6 +232,10 @@ def generate_multiple_shapes(
                 height = random.randint(min_param * 2, max_param * 2)
                 height = 5 * radius  # 可按需调整参数范围
                 param = (radius, height)
+            else:
+                # 若未定义，默认sphere
+                radius = random.randint(min_param, max_param)
+                param = radius
             rotate_angles = (
                 random.uniform(0, max_rotation),
                 random.uniform(0, max_rotation),

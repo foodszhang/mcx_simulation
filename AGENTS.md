@@ -10,15 +10,15 @@
 ## 2. 目录结构与主要脚本功能
 
 ### 2.1 主流程&入口模块
-- `main.py`：全局主入口文件，一般调用和串联各工具功能。
-- `test.py`：用于单元测试/调试各数据及配置读取，辅助开发。
+- `main.py`：全局主入口文件，调度src目录下的仿真、批量生成、投影后处理各模块，实现批量体积光学仿真与多视角投影的完整主流程。
+- `tests/test.py`：用于单元测试/调试各数据及配置读取，辅助开发。
 
 ### 2.2 体素与数据预处理
 - `preprocessing.py`：体素网格分块、预处理工具，支持大体积数据分区存储与后处理。
 - `FMTData_human.py`：主要类`NIRIIFMTDataGenerator`负责医学成像数据（荧光、激发等）仿真，包括体积生成、探测器位置计算、噪声和数据标准化、批量样本生成。
 
 ### 2.3 配置生成与参数自动化
-- `gen_config.py`/`green_gen.py`/`make_green_mat.py`/`gen_test_blt_config.py`/`gen_test_blt_other_data.py`/`gen_test_blt_all_data.py`：批量生成仿真或配置信息、绿色材料参数、批量合成数据与配置等。
+- `gen_config.py`/`green_gen.py`/`make_green_mat.py`/`batch_config_generator.py`/`batch_postprocessor.py`/`batch_simulation_runner.py`：批量生成仿真或配置信息、格林函数参数、批量合成数据与配置等。
 
 ### 2.4 三维图像及投影
 - `vis_3d.py`：3D医学图像（如分割体素/点云）可视化及样本数据生成。

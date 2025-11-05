@@ -26,5 +26,7 @@ preproces*/
 *.npz
 zhao*/
 ouput/
+volume_bases/
 # Virtual environments
 .venv
+

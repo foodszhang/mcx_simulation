@@ -1,75 +1,93 @@
 # --------------------------------------------------
-# 体积光学仿真配置生成脚本（优化版）
+# 体积光学仿真配置生成脚本
 # --------------------------------------------------
-# 作者：资深软件与算法工程师
+# 作者：foodszhang@gmail.com
 # 说明：统一变量命名风格、增强可读性和文档性，代码功能保持不变
 # --------------------------------------------------
 import json
 import os
 from datetime import datetime
 import random
-import numpy as np
+import shutil
 from copy import deepcopy
+from .load_config import load_config
+import yaml
+from src.shape_generator import generate_multiple_shapes
+import numpy as np
+from datetime import datetime
 
-# 业务相关模块引入
-from simple_gen import gen_shape, gen_volume_and_media, generate_multiple_shapes
-from vis_3d import visualize_3d_array
-
-# 设置全局随机种子和日期字符串，确保实验可复现
-RANDOM_SEED = 23
+# 随机种子由配置文件读取，确保仿真结果可复现
+config = load_config()
+RANDOM_SEED = config.get("random_seed", 23)
 random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
 DATE_STRING = datetime.now().strftime("%Y%m%d")
 
 
-def generate_multi_blt_config(num_configs=200, output_dir=f"./{DATE_STRING}"):
+def generate_multi_blt_config(
+    num_configs=200, output_dir=f"./{DATE_STRING}", config=config
+):
     """
-    批量生成单次光学仿真配置文件
+    批量生成单次光学仿真配置文件，所有参数统一由config.yaml读取（见src/load_config.py），方便医学/科研人员调整
     :param num_configs: 生成配置的数量
     :param output_dir: 配置文件保存目录
+    :param config: 全局配置参数，默认从文件顶部读取，避免重复读文件，提升效率
     """
     os.makedirs(output_dir, exist_ok=True)
-    from randomize_media import randomize_media
+    from .randomize_media import randomize_media
 
-    # 生成体积数据和初始介质参数
-    volume_file, volume_shape, media_list, volume_data = gen_volume_and_media(
-        "brain", output_dir
-    )
-    # 随机扰动介质参数（mua、mus），g、n参数保持不变
-    perturb_bounds = {"mua": 0.003, "mus": 0.1}
-    media_list = randomize_media(media_list, perturb_bounds)
+    # --------------------------
+    # 从 config.yaml 读取 volume 文件与 shape，材料路径及 media 列表
+    # --------------------------
+    with open(config["generated_material_yaml_path"], "r", encoding="utf-8") as yf:
+        media_list = yaml.safe_load(yf)
+    # 拷贝体素文件到 output_dir 根目录，确保配置引用的体素文件在仿真目录内
+    volume_shape = config["volume_shape"]
+    volume_src_path = config["generated_bin_path"]
+    volume_dst_path = os.path.join(output_dir, os.path.basename(volume_src_path))
+    if not os.path.exists(volume_src_path):
+        raise FileNotFoundError(f"体素文件不存在: {volume_src_path}")
+    shutil.copy(volume_src_path, volume_dst_path)
+
+    # 记录相对路径（每个子目录到output_dir根目录），配置文件统一使用 "../xxx.bin"
+    volume_file = f"../{os.path.basename(volume_dst_path)}"
+
+    src_range_z = config["src_range"]["z"]
+    src_range_y = config["src_range"]["y"]
+    src_range_x = config["src_range"]["x"]
+    max_rotation = config["src_range"].get("max_rotation", 30)
 
     for config_idx in range(num_configs):
         session_id = str(config_idx)
         config_subdir = os.path.join(output_dir, f"{config_idx}")
         os.makedirs(config_subdir, exist_ok=True)
-        config = {}
+        config_dict = {}
 
         # --- Domain 设置 ---
         domain = {
-            "VolumeFile": f"../{volume_file}",  # 体素文件相对路径
-            "Dim": volume_shape,  # 三维体素尺寸
-            "OriginType": 1,  # 原点类型标志
-            "LengthUnit": 0.1,  # 单体素实际长度（mm）
-            "Media": media_list,  # 光学介质参数列表
+            "VolumeFile": volume_file,
+            "Dim": volume_shape,
+            "OriginType": 1,
+            "LengthUnit": config.get("lengthunit", 0.1),
+            "Media": media_list,
         }
 
         # --- Session 参数 ---
         session = {"Photons": int(1e6), "RNGSeed": config_idx, "ID": session_id}
-        # --- Forward 参数 ---
-        forward = {"T0": 0.0e00, "T1": 5.0e-09, "DT": 5.0e-09}
+        # --- Forward 参数：由config统一读取 ---
+        forward = config.get("forward", {"T0": 0.0e00, "T1": 5.0e-09, "DT": 5.0e-09})
 
         # --- 光源（Source）参数设定 ---
         source_filename = f"source-{config_idx}.bin"
-        src_range_z = (60, 120)
-        src_range_y = (40, 140)
-        src_range_x = (96, 130)
         src_voxel_size = (
             src_range_x[1] - src_range_x[0],
             src_range_y[1] - src_range_y[0],
             src_range_z[1] - src_range_z[0],
         )
         # 生成三维模式的光源体素数组及形状标签
-        source_arr, _ = generate_multiple_shapes(src_voxel_size, 1, max_rotation=30)
+        source_arr, _ = generate_multiple_shapes(
+            src_voxel_size, 1, max_rotation=max_rotation
+        )
         full_source_path = os.path.join(config_subdir, source_filename)
         source_arr = source_arr.astype(np.float32)
         source_arr.tofile(full_source_path)
@@ -86,7 +104,6 @@ def generate_multi_blt_config(num_configs=200, output_dir=f"./{DATE_STRING}"):
         optode = {
             "Source": {
                 "Pos": [src_range_z[0], src_range_y[0], src_range_x[0]],
-                # 最后的_NaN_代表光源是各向同性
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 "Pattern": {
@@ -100,20 +117,20 @@ def generate_multi_blt_config(num_configs=200, output_dir=f"./{DATE_STRING}"):
         }
 
         # --- 组装最终配置字典 ---
-        config["Domain"] = domain
-        config["Session"] = session
-        config["Forward"] = forward
-        config["Optode"] = optode
+        config_dict["Domain"] = domain
+        config_dict["Session"] = session
+        config_dict["Forward"] = forward
+        config_dict["Optode"] = optode
         json_config_path = os.path.join(config_subdir, f"{config_idx}.json")
         json_config_nos_path = os.path.join(config_subdir, f"no_{config_idx}.json")
         # --- 保存标准仿真配置 ---
         with open(json_config_path, "w") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
+            json.dump(config_dict, f, indent=2, ensure_ascii=False)
         # --- 保存无散射配置（mus=0） ---
         no_scatter_media = deepcopy(media_list)
         for media_item in no_scatter_media:
             media_item["mus"] = 0.0
-        config_no_scatter = deepcopy(config)
+        config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media
         config_no_scatter["Session"]["ID"] = f"no_{session_id}"
         with open(json_config_nos_path, "w") as f:

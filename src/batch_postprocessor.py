@@ -29,18 +29,23 @@ def generate_projection(entry_path, entry, config, sim_type="normal"):
         },
     )
     proj_params = config.get("projection", {})
+    # ==== 存储文件名均由 config['projection'] 配置，未设置时自动降级为默认名 ====
+    flux_proj_npz = config.get('projection', {}).get('flux_proj_npz', 'proj.npz')
+    depth_proj_npz = config.get('projection', {}).get('depth_proj_npz', 'dep_proj.npz')
+    no_flux_proj_npz = config.get('projection', {}).get('no_flux_proj_npz', 'no_proj.npz')
+    no_depth_proj_npz = config.get('projection', {}).get('no_depth_proj_npz', 'no_dep_proj.npz')
     if sim_type == "no_scatter":
         result_file = os.path.join(
             entry_path, format_filename(file_naming["noscatter"]["result"], entry)
         )
-        proj_data_path = os.path.join(entry_path, f"no_proj.npz")
-        dep_proj_data_path = os.path.join(entry_path, f"no_dep_proj.npz")
+        proj_data_path = os.path.join(entry_path, no_flux_proj_npz)
+        dep_proj_data_path = os.path.join(entry_path, no_depth_proj_npz)
     else:
         result_file = os.path.join(
             entry_path, format_filename(file_naming["normal"]["result"], entry)
         )
-        proj_data_path = os.path.join(entry_path, f"proj.npz")
-        dep_proj_data_path = os.path.join(entry_path, f"dep_proj.npz")
+        proj_data_path = os.path.join(entry_path, flux_proj_npz)
+        dep_proj_data_path = os.path.join(entry_path, depth_proj_npz)
     if not os.path.exists(result_file):
         raise Exception(f"{result_file} 未生成！")
     full_data = jd.loadjd(result_file)
@@ -68,90 +73,6 @@ def generate_projection(entry_path, entry, config, sim_type="normal"):
     return 0
 
 
-def gen_no_other(entry_path, entry, proj_params):
-    """
-    该函数根据主配置参数（proj_params，来自config["projection"]）进行无散射投影矩阵生成
-    参数:
-        entry_path: 当前数据子目录路径
-        entry: 当前子目录/样本编号
-        proj_params: 包含angles、detectors和尺寸的投影配置字典（来自总config的projection）
-    """
-    result_file = os.path.join(entry_path, f"no_{entry}.jnii")
-    if not os.path.exists(result_file):
-        raise Exception(f"{result_file} 未生成！")
-    # tag_mat = np.fromfile("../volume_brain.bin")
-    # TODO: 这里硬编码了， 改日再改吧
-    full_data = jd.loadjd(result_file)
-    if len(full_data["NIFTIData"].shape) == 3:
-        flux = full_data["NIFTIData"][:, :, :]
-    else:
-        flux = full_data["NIFTIData"][:, :, :, 0, 0]
-    proj_data_path = os.path.join(entry_path, f"no_proj.npz")
-    dep_proj_data_path = os.path.join(entry_path, f"no_dep_proj.npz")
-
-    # flux_proj = get_multi_direction_projections(flux, tag_mat)
-
-    # 投影参数均从主流程透传的proj_params内读取，彻底去除硬编码
-    flux_proj = {}
-    depth_proj = {}
-    angles = proj_params.get("angles", [-90, -60, -30, 0, 30, 60, 90])
-    det_res = tuple(proj_params.get("detector_resolution", (256, 256)))
-    for angle in angles:
-        proj, depth = generate_projection_view_matrix(
-            flux,
-            angle,
-            200,
-            det_res,
-            det_res,
-        )
-        flux_proj[f"{angle}"] = proj
-        depth_proj[f"{angle}"] = depth
-
-    np.savez(proj_data_path, **flux_proj)
-    np.savez(dep_proj_data_path, **flux_proj)
-    return 0
-
-
-def gen_other(entry_path, entry, proj_params):
-    """
-    该函数基于主流程下发的proj_params（即config['projection']）进行标准体积仿真投影生成。
-    参数:
-        entry_path: 数据子目录路径
-        entry: 当前子目录编号
-        proj_params: 投影视角等配置参数，均由主流程集中传递，典型键如angles, detectors, resolution, output_pattern等
-    """
-    result_file = os.path.join(entry_path, f"{entry}.jnii")
-    if not os.path.exists(result_file):
-        raise Exception(f"{result_file} 未生成！")
-    # tag_mat = np.fromfile("../volume_brain.bin")
-    # TODO: 这里硬编码了， 改日再改吧
-    full_data = jd.loadjd(result_file)
-    print("55555", entry)
-    if len(full_data["NIFTIData"].shape) == 3:
-        flux = full_data["NIFTIData"][:, :, :]
-    else:
-        flux = full_data["NIFTIData"][:, :, :, 0, 0]
-    proj_data_path = os.path.join(entry_path, f"proj.npz")
-    dep_proj_data_path = os.path.join(entry_path, f"dep_proj.npz")
-
-    # flux_proj = get_multi_direction_projections(flux, tag_mat)
-
-    flux_proj = {}
-    depth_proj = {}
-    for angle in [-90, -60, -30, 0, 30, 60, 90]:
-        proj, depth = generate_projection_view_matrix(
-            flux,
-            angle,
-            200,
-            (256, 256),
-            (256, 256),
-        )
-        flux_proj[f"{angle}"] = proj
-        depth_proj[f"{angle}"] = depth
-
-    np.savez(proj_data_path, **flux_proj)
-    np.savez(dep_proj_data_path, **flux_proj)
-    return 0
 
 
 def gen_other_all(entry_path, entry, config):

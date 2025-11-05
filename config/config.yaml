@@ -5,14 +5,13 @@ output_dir: ./output_data
 random_seed: 23
 shape_generation:
   num_shapes: 3
-file_naming:   # ——[新]文件命名模板配置——
+file_naming:
   normal:
-    config: '{id}.json'      # 标准仿真配置文件名，如“1.json”
-    result: '{id}.jnii'      # 标准仿真输出结果文件名，如“1.jnii”
+    config: '{id}.json'
+    result: '{id}.jnii'
   noscatter:
-    config: 'no_{id}.json'   # 无散射仿真配置文件名，如“no_1.json”
-    result: 'no_{id}.jnii'   # 无散射仿真输出文件名，如“no_1.jnii”
-
+    config: no_{id}.json
+    result: no_{id}.jnii
   shape_types:
   - cylinder
   - ellipsoid
@@ -50,9 +49,12 @@ projection:
   - 90
   detectors:
   - 1
-  filename_pattern: proj_{angle}deg_det{det}.npz
-generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
-generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_1200nm.yaml
+  flux_proj_npz: proj.npz               # 标准有散射仿真投影npz文件名
+  depth_proj_npz: dep_proj.npz          # 标准有散射仿真深度投影文件名
+  no_flux_proj_npz: no_proj.npz         # 无散射仿真投影npz文件名
+  no_depth_proj_npz: no_dep_proj.npz    # 无散射仿真深度投影文件名
+generated_bin_path: F:\win-pro\mcx_simulation\volume_bases\bin\volume_brain.bin
+generated_material_yaml_path: F:\win-pro\mcx_simulation\volume_bases\material\rat_brain_1200nm.yaml
 volume_shape:
 - 182
 - 164

@@ -11,6 +11,42 @@ def batch_run_mcx_simulations(root_folder: str) -> None:
     参数:
         root_folder (str): 根目录路径。
     """
+    import shutil  # 在函数体内部导入避免全局污染
+
+    # ---- MCX命令可用性自动检测与GPU能力判别，兼容WSL/win/linux全版本 ----
+    mcx_exec = None
+    gpu_supported = False
+    # 优先检测mcx, mcx.exe，尝试判断GPU能力
+    for name in ["mcx", "mcx.exe"]:
+        path = shutil.which(name)
+        if path is not None:
+            try:
+                result = subprocess.run(
+                    [name, "-L"], capture_output=True, text=True, check=True
+                )
+                out = result.stdout.lower() + result.stderr.lower()
+                if "gpu" in out or "nvidia" in out:
+                    mcx_exec = name
+                    gpu_supported = True
+                    print(f"已检测到GPU仿真工具：{name}")
+                    break
+                else:
+                    print(f"已检测到{name}，但无GPU能力，将尝试CPU仿真工具（mcxcl）。")
+            except Exception as e:
+                print(f"检测{name} GPU能力时发生异常：{e}，尝试其他仿真命令。")
+    # 若GPU版无效，自动降级为mcxcl/mcxcl.exe（CPU多线程）
+    if not gpu_supported:
+        for name in ["mcxcl", "mcxcl.exe"]:
+            path = shutil.which(name)
+            if path is not None:
+                mcx_exec = name
+                print(f"降级使用CPU仿真工具：{name}")
+                break
+    if not mcx_exec:
+        raise RuntimeError(
+            "未检测到任何可用的MCX仿真命令（mcx/mcx.exe/mcxcl/mcxcl.exe），请检查环境变量与工具安装。"
+        )
+
     # ---- 目录与体标签文件准备 ----
     if not os.path.exists(root_folder):
         raise FileNotFoundError(f"错误: 根目录 {root_folder} 不存在")
@@ -46,9 +82,9 @@ def batch_run_mcx_simulations(root_folder: str) -> None:
 
             try:
                 # --- 执行标准mcx仿真 ---
-                print(f"执行: mcx -f {json_normal} -a 1 @ {sub_folder}")
+                print(f"执行: {mcx_exec} -f {json_normal} -a 1")
                 result_normal = subprocess.run(
-                    ["mcx", "-f", json_normal, "-a", "1"],
+                    [mcx_exec, "-f", json_normal, "-a", "1"],
                     cwd=sub_folder,
                     check=True,
                     capture_output=True,
@@ -61,16 +97,45 @@ def batch_run_mcx_simulations(root_folder: str) -> None:
                     raise RuntimeError(f"仿真结果未生成: {result_jnii_path}")
 
                 # ---- 结果数据加载与处理 ----
-                sim_data = jd.loadjd(result_jnii_path)
-                flux_map = (
-                    sim_data["NIFTIData"]
-                    if len(sim_data["NIFTIData"].shape) == 3
-                    else sim_data["NIFTIData"][:, :, :, 0, 0]
-                )
-
+                # sim_data = jd.loadjd(result_jnii_path)
+                # flux_map = (
+                #     sim_data["NIFTIData"]
+                #     if len(sim_data["NIFTIData"].shape) == 3
+                #     else sim_data["NIFTIData"][:, :, :, 0, 0]
+                # )
+                #
                 # 进一步的投影与后处理（根据具体需求修改）
-                flux_npy_path = os.path.join(sub_folder, f"{sub_name}_flux.npy")
-                np.save(flux_npy_path, flux_map)
+                # flux_npy_path = os.path.join(sub_folder, f"{sub_name}_flux.npy")
+                # np.save(flux_npy_path, flux_map)
+
+                # === 新增无散射仿真（mus=0）处理 ===
+                json_no_scatter = f"no_{sub_name}.json"
+                path_json_no_scatter = os.path.join(sub_folder, json_no_scatter)
+                result_no_jnii_path = os.path.join(sub_folder, f"no_{sub_name}.jnii")
+                if os.path.exists(path_json_no_scatter):
+                    if os.path.exists(result_no_jnii_path):
+                        print(
+                            f"已存在无散射仿真结果: {result_no_jnii_path}，跳过无散射仿真。"
+                        )
+                    else:
+                        try:
+                            print(f"执行无散射: {mcx_exec} -f {json_no_scatter} -a 1")
+                            result_no = subprocess.run(
+                                [mcx_exec, "-f", json_no_scatter, "-a", "1"],
+                                cwd=sub_folder,
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                            )
+                            print(f"无散射仿真输出: {result_no.stdout}")
+                            if not os.path.exists(result_no_jnii_path):
+                                raise RuntimeError(
+                                    f"无散射仿真结果未生成: {result_no_jnii_path}"
+                                )
+                        except subprocess.CalledProcessError as err:
+                            print(f"无散射命令执行失败: {err.stderr}")
+                        except Exception as ex2:
+                            print(f"无散射处理 {sub_folder} 时发生异常: {str(ex2)}")
 
             except subprocess.CalledProcessError as err:
                 print(f"命令执行失败: {err.stderr}")

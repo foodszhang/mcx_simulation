@@ -126,13 +126,46 @@ def display_multiple_heatmaps(
     plt.show()
 
 
+def display_npz_diff_heatmaps(npz_path, no_npz_path, save_dir=None, figsize=(12, 8), cmap="bwr"):
+    """
+    显示npz和no_npz两个文件中同名数组的差值热力图。
+    支持2维（单图）和3维（批量）灰度数据。
+    """
+    try:
+        data1 = np.load(npz_path)
+        data2 = np.load(no_npz_path)
+
+        keys = set(data1.keys()) & set(data2.keys())
+        if not keys:
+            print("两个文件没有同名数组，跳过差值展示。")
+            return
+        print(f"可进行差值对比的数组: {list(keys)}")
+        if save_dir is not None:
+            os.makedirs(save_dir, exist_ok=True)
+        for key in keys:
+            arr1, arr2 = data1[key], data2[key]
+            # 仅比较shape相同且为2维/3维
+            if arr1.shape != arr2.shape:
+                print(f"数组 '{key}' 形状不一致，已跳过。")
+                continue
+            diff = arr1 - arr2
+            if diff.ndim == 2:
+                display_single_heatmap(diff, f"diff_{key}", save_dir, figsize, cmap)
+            elif diff.ndim == 3:
+                display_multiple_heatmaps(diff, f"diff_{key}", save_dir, figsize, cmap)
+            else:
+                print(f"数组 '{key}' 维度 ({diff.ndim}) 不支持差值展示。")
+    except Exception as e:
+        print(f"差值展示出错: {e}")
+
 # 使用示例
 if __name__ == "__main__":
     # 示例1: 基本用法
-    npz_path = "./one_source_val/3/proj.npz"
+    npz_path = "./20251106/0/proj.npz"
+    no_npz_path = "./20251106/0/no_proj.npz"
     display_npz_heatmaps(npz_path, cmap="hot")
-    no_npz_path = "./one_source_val/3/no_proj.npz"
     display_npz_heatmaps(no_npz_path, cmap="hot")
+    display_npz_diff_heatmaps(npz_path, no_npz_path, cmap="bwr")
 
     # 示例2: 保存图片并使用不同颜色映射
     # display_npz_heatmaps(npz_path, save_dir='heatmap_results', cmap='viridis')

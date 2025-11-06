@@ -67,10 +67,13 @@ def generate_multi_blt_config(
     def format_filename(template, _id):
         return template.format(id=_id)
 
-    file_naming = config.get("file_naming", {
-        "normal": {"config": "{id}.json", "result": "{id}.jnii"},
-        "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"}
-    })
+    file_naming = config.get(
+        "file_naming",
+        {
+            "normal": {"config": "{id}.json", "result": "{id}.jnii"},
+            "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"},
+        },
+    )
 
     for config_idx in range(num_configs):
         session_id = str(config_idx)
@@ -88,7 +91,13 @@ def generate_multi_blt_config(
         }
 
         # --- Session 参数 ---
-        session = {"Photons": int(1e6), "RNGSeed": config_idx, "ID": format_filename(file_naming["normal"]["config"], session_id).replace('.json', '')}
+        session = {
+            "Photons": int(1e9),
+            "RNGSeed": config_idx,
+            "ID": format_filename(file_naming["normal"]["config"], session_id).replace(
+                ".json", ""
+            ),
+        }
         # --- Forward 参数：由config统一读取 ---
         forward = config.get("forward", {"T0": 0.0e00, "T1": 5.0e-09, "DT": 5.0e-09})
 
@@ -138,19 +147,27 @@ def generate_multi_blt_config(
         config_dict["Optode"] = optode
 
         # 标准仿真config和结果
-        json_config_path = os.path.join(config_subdir, format_filename(file_naming["normal"]["config"], session_id))
+        json_config_path = os.path.join(
+            config_subdir, format_filename(file_naming["normal"]["config"], session_id)
+        )
         # --- 保存标准仿真配置 ---
         with open(json_config_path, "w") as f:
             json.dump(config_dict, f, indent=2, ensure_ascii=False)
         # --- 保存无散射配置（mus=0） ---
         no_scatter_media = deepcopy(media_list)
         for media_item in no_scatter_media:
+            media_item["mua"] += media_item.get("mus", 0.0)
             media_item["mus"] = 0.0
         config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media
         # 用noscatter中的模板名，Session.ID也和json名模板一致，不带后缀
-        config_no_scatter["Session"]["ID"] = format_filename(file_naming["noscatter"]["config"], session_id).replace('.json', '')
-        json_config_nos_path = os.path.join(config_subdir, format_filename(file_naming["noscatter"]["config"], session_id))
+        config_no_scatter["Session"]["ID"] = format_filename(
+            file_naming["noscatter"]["config"], session_id
+        ).replace(".json", "")
+        json_config_nos_path = os.path.join(
+            config_subdir,
+            format_filename(file_naming["noscatter"]["config"], session_id),
+        )
         with open(json_config_nos_path, "w") as f:
             json.dump(config_no_scatter, f, indent=2, ensure_ascii=False)
 

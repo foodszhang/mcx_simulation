@@ -49,12 +49,12 @@ projection:
   - 90
   detectors:
   - 1
-  flux_proj_npz: proj.npz               # 标准有散射仿真投影npz文件名
-  depth_proj_npz: dep_proj.npz          # 标准有散射仿真深度投影文件名
-  no_flux_proj_npz: no_proj.npz         # 无散射仿真投影npz文件名
-  no_depth_proj_npz: no_dep_proj.npz    # 无散射仿真深度投影文件名
-generated_bin_path: F:\win-pro\mcx_simulation\volume_bases\bin\volume_brain.bin
-generated_material_yaml_path: F:\win-pro\mcx_simulation\volume_bases\material\rat_brain_1200nm.yaml
+  flux_proj_npz: proj.npz
+  depth_proj_npz: dep_proj.npz
+  no_flux_proj_npz: no_proj.npz
+  no_depth_proj_npz: no_dep_proj.npz
+generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
+generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_1200nm.yaml
 volume_shape:
 - 182
 - 164

@@ -53,8 +53,8 @@ projection:
   depth_proj_npz: dep_proj.npz
   no_flux_proj_npz: no_proj.npz
   no_depth_proj_npz: no_dep_proj.npz
-generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
-generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_1200nm.yaml
+generated_bin_path: F:\win-pro\mcx_simulation\volume_bases\bin\volume_brain.bin
+generated_material_yaml_path: F:\win-pro\mcx_simulation\volume_bases\material\rat_brain_1200nm.yaml
 volume_shape:
 - 182
 - 164

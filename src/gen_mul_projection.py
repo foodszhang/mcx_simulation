@@ -121,7 +121,8 @@ def generate_projection_view_matrix(
     voxel_data, rotation_deg, camera_distance, detector_size, detector_resolution
 ):
     """
-    使用矩阵运算优化的投影视图生成
+    使用矩阵运算优化的投影视图生成。
+    注意：该函数不做任何深度过滤，完全保留原始所有可见点，只在展示阶段做后处理。
     """
     width_pixels, height_pixels = detector_resolution
     width_phys, height_phys = detector_size
@@ -155,12 +156,11 @@ def generate_projection_view_matrix(
     points = np.array(nonzero_indices, dtype=np.float32)
     values_array = np.array(values, dtype=np.float32)
 
-    # 批量投影
     projections, depths = project_points_to_camera_batch_matrix(
         points, rotation_deg, camera_distance, detector_size
     )
 
-    # 处理每个投影点
+    # 不做任何深度过滤，只保留最浅点
     for idx in range(len(points)):
         u, v = projections[idx, 0], projections[idx, 1]
         depth_val = depths[idx, 0]
@@ -171,10 +171,11 @@ def generate_projection_view_matrix(
             pixel_u = int((u + width_phys / 2) / pixel_to_phys_x)
             pixel_v = int((v + height_phys / 2) / pixel_to_phys_y)
 
-            # 修正上下颠倒
+            # 修正上下颠倒，如果需要可解开注释
             # pixel_v = height_pixels - 1 - pixel_v
 
             if 0 <= pixel_u < width_pixels and 0 <= pixel_v < height_pixels:
+                # 只保留该像素最浅点
                 if depth_val < depth_map[pixel_u, pixel_v]:
                     depth_map[pixel_u, pixel_v] = depth_val
                     projection[pixel_u, pixel_v] = values_array[idx]
@@ -193,8 +194,8 @@ class VolumeProjector:
         self.detector_size = np.array(detector_size, dtype=np.float32)
         self.detector_resolution = np.array(detector_resolution, dtype=np.int32)
 
-    def project_volume(self, volume_data, view_angles=None):
-        """使用矩阵运算优化的体积投影"""
+    def project_volume(self, volume_data, view_angles=None, max_depth=np.inf):
+        """使用矩阵运算优化的体积投影，支持最大深度阈值控制"""
         if view_angles is None:
             view_angles = [0, 30, 60, 90, 120, 150, 180]
 
@@ -218,13 +219,19 @@ class VolumeProjector:
 
         return projections, depth_maps, angles_list
 
-    def visualize_projections(self, volume_data, view_angles=None, figsize=(20, 8)):
-        """可视化投影结果"""
+    def visualize_projections(
+        self, volume_data, view_angles=None, figsize=(20, 8), max_depth=None
+    ):
+        """
+        可视化投影结果，支持深度阈值后处理，max_depth 若设定则只显示对应深度以内像素。
+        :param max_depth: （可选）深度阈值，仅显示深度小于此值的像素，其他像素值设为0。
+        """
         if view_angles is None:
             view_angles = [0, 30, 60, 90, 120, 150, 180]
 
+        # 向下透传max_depth到project_volume
         projections, depth_maps, angles_list = self.project_volume(
-            volume_data, view_angles
+            volume_data, view_angles, max_depth if max_depth is not None else np.inf
         )
 
         n_views = len(view_angles)
@@ -236,6 +243,22 @@ class VolumeProjector:
         for idx, angle in enumerate(angles_list):
             projection = projections[idx]
             depth_map = depth_maps[idx]
+
+            # 只在展示阶段做深度分位过滤，科学可溯源
+            # 获取有效深度点（去除inf），并计算80%分位点
+            valid_depths = depth_map[depth_map != np.inf]
+            if valid_depths.size > 0:
+                depth_thr = np.percentile(valid_depths, 80)
+            else:
+                depth_thr = np.inf
+            # 生成掩码：只显示深度小于该阈值的点
+            mask = (depth_map < depth_thr) & (depth_map != np.inf)
+
+            # 应用掩码：显示80%最浅的点
+            filtered_projection = np.zeros_like(projection)
+            filtered_projection[mask] = projection[mask]
+            filtered_depth = np.zeros_like(depth_map)
+            filtered_depth[mask] = depth_map[mask]
 
             if n_views == 1:
                 ax1 = axes[0, 0]
@@ -254,14 +277,13 @@ class VolumeProjector:
                 dtype=np.float32,
             )
 
-            im1 = ax1.imshow(projection, cmap="hot", extent=extent)
-            ax1.set_title(f"投影视图 {angle}°")
+            # 展示处理后的投影图和深度图，贴合医学科研场景
+            im1 = ax1.imshow(filtered_projection, cmap="hot", extent=extent)
+            ax1.set_title(f"投影视图 {angle}° (仅80%浅层像素)")
             plt.colorbar(im1, ax=ax1, fraction=0.046)
 
-            depth_display = depth_map.copy()
-            depth_display[depth_display == np.inf] = 0
-            im2 = ax2.imshow(depth_display, cmap="viridis", extent=extent)
-            ax2.set_title(f"深度图 {angle}°")
+            im2 = ax2.imshow(filtered_depth, cmap="viridis", extent=extent)
+            ax2.set_title(f"深度图 {angle}° (小于P80)")
             plt.colorbar(im2, ax=ax2, fraction=0.046)
 
         plt.tight_layout()
@@ -304,7 +326,9 @@ def analyze_volume(
     print(f"非零元素: {np.count_nonzero(volume_data)} / {volume_data.size}")
 
     # 生成投影
-    projections, depth_maps = projector.visualize_projections(volume_data, view_angles)
+    projections, depth_maps = projector.visualize_projections(
+        volume_data, view_angles, max_depth=500
+    )
 
     return projections, depth_maps
 
@@ -314,7 +338,7 @@ if __name__ == "__main__":
     print("预编译Numba函数...")
     import jdata as jd
 
-    full_data = jd.loadjd("./two_source_train/2/2.jnii")
+    full_data = jd.loadjd("./20251106/0/no_0.jnii")
     if len(full_data["NIFTIData"].shape) == 3:
         flux = full_data["NIFTIData"][:, :, :]
     else:
@@ -333,7 +357,7 @@ if __name__ == "__main__":
     # flux = np.where(flux > 1, np.log(flux), 0)
     analyze_volume(
         flux,
-        view_angles=[-90, -30, -60, 0, 30, 60, 90],
+        view_angles=[-90, -60, -30, 0, 30, 60, 90],
         camera_distance=200,
         detector_resolution=(256, 256),
         detector_size=(256, 300),

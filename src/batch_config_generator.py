@@ -63,6 +63,7 @@ def generate_multi_blt_config(
     src_range_y = config["src_range"]["y"]
     src_range_x = config["src_range"]["x"]
     max_rotation = config["src_range"].get("max_rotation", 30)
+    max_rotation = 0
 
     def format_filename(template, _id):
         return template.format(id=_id)
@@ -92,7 +93,7 @@ def generate_multi_blt_config(
 
         # --- Session 参数 ---
         session = {
-            "Photons": int(1e9),
+            "Photons": int(1e7),
             "RNGSeed": config_idx,
             "ID": format_filename(file_naming["normal"]["config"], session_id).replace(
                 ".json", ""
@@ -157,6 +158,7 @@ def generate_multi_blt_config(
         no_scatter_media = deepcopy(media_list)
         for media_item in no_scatter_media:
             media_item["mua"] += media_item.get("mus", 0.0)
+            media_item["mua"] /= 100.0
             media_item["mus"] = 0.0
         config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media

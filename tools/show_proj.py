@@ -126,7 +126,9 @@ def display_multiple_heatmaps(
     plt.show()
 
 
-def display_npz_diff_heatmaps(npz_path, no_npz_path, save_dir=None, figsize=(12, 8), cmap="bwr"):
+def display_npz_diff_heatmaps(
+    npz_path, no_npz_path, save_dir=None, figsize=(12, 8), cmap="bwr"
+):
     """
     显示npz和no_npz两个文件中同名数组的差值热力图。
     支持2维（单图）和3维（批量）灰度数据。
@@ -158,6 +160,7 @@ def display_npz_diff_heatmaps(npz_path, no_npz_path, save_dir=None, figsize=(12,
     except Exception as e:
         print(f"差值展示出错: {e}")
 
+
 # 使用示例
 if __name__ == "__main__":
     # 示例1: 基本用法
@@ -165,7 +168,7 @@ if __name__ == "__main__":
     no_npz_path = "./20251106/0/no_proj.npz"
     display_npz_heatmaps(npz_path, cmap="hot")
     display_npz_heatmaps(no_npz_path, cmap="hot")
-    display_npz_diff_heatmaps(npz_path, no_npz_path, cmap="bwr")
+    # display_npz_diff_heatmaps(npz_path, no_npz_path, cmap="bwr")
 
     # 示例2: 保存图片并使用不同颜色映射
     # display_npz_heatmaps(npz_path, save_dir='heatmap_results', cmap='viridis')
@@ -173,4 +176,4 @@ if __name__ == "__main__":
     # 示例3: 如果你知道NPZ文件中的特定数组名，也可以单独处理
     # data = np.load(npz_path)
     # specific_array = data['array_name']  # 替换为实际的数组名
-    # display_single_heatmap(specific_array, '特定数组')
+    # display_single_heatmap(specific_array, 'C

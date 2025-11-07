@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-full_data = jd.loadjd("./two_source_val/0/0.jnii")
+full_data = jd.loadjd("./20251106/0/0.jnii")
 if len(full_data["NIFTIData"].shape) == 3:
     flux = full_data["NIFTIData"][:, :, :]
 else:

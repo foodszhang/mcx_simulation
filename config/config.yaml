@@ -13,7 +13,6 @@ file_naming:
     config: no_{id}.json
     result: no_{id}.jnii
   shape_types:
-  - cylinder
   - ellipsoid
   - sphere
   min_param: 4

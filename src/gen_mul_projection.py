@@ -1,3 +1,21 @@
+"""
+核心逻辑说明（医学/生物成像工程标准注释）：
+
+本模块主要实现三维光场数据在体素网格内（I[x, y, z]）的多视角投影仿真。
+- 默认主视角为 z 轴（从大到小）, 即相机由物体顶部朝向底部观察。
+- 投影时以 Y 轴（穿过体素网格中心）为旋转轴, 通过旋转 rotation_deg（角度）获得不同侧视角。
+- 对每一个 rotation_deg，均以固定的相机与体素网格中心距离进行投影。
+- 投影操作时, 对于每个投影射线（像素方向），在体素网格中沿相机方向遍历，取第一个遇到的 I[x, y, z] ≠ 0 的点作为投影结果。
+- 该逻辑贴合医学荧光成像、体积数据科学分析需求, 便于多角度采集与生物数据分析。
+
+rotation_deg: 控制当前侧视角（0°为主视角，正方向为顺时针绕Y轴旋转）。
+相机方向：由rotation_deg决定，主视角为[0, 0, -1]，旋转后自动变换。
+
+所有关键变量、主流程、核心算法均有详细中文注释，方便医学工程团队和深度学习场景长期维护与复用。
+
+深度/位置/探测参数可灵活设置，直接用于医学仿真或AI数据生成。
+"""
+
 import numpy as np
 from numba import njit, prange
 import matplotlib.pyplot as plt
@@ -194,7 +212,7 @@ class VolumeProjector:
         self.detector_size = np.array(detector_size, dtype=np.float32)
         self.detector_resolution = np.array(detector_resolution, dtype=np.int32)
 
-    def project_volume(self, volume_data, view_angles=None, max_depth=np.inf):
+    def project_volume(self, volume_data, view_angles=None):
         """使用矩阵运算优化的体积投影，支持最大深度阈值控制"""
         if view_angles is None:
             view_angles = [0, 30, 60, 90, 120, 150, 180]
@@ -219,19 +237,13 @@ class VolumeProjector:
 
         return projections, depth_maps, angles_list
 
-    def visualize_projections(
-        self, volume_data, view_angles=None, figsize=(20, 8), max_depth=None
-    ):
-        """
-        可视化投影结果，支持深度阈值后处理，max_depth 若设定则只显示对应深度以内像素。
-        :param max_depth: （可选）深度阈值，仅显示深度小于此值的像素，其他像素值设为0。
-        """
+    def visualize_projections(self, volume_data, view_angles=None, figsize=(20, 8)):
+        """ """
         if view_angles is None:
             view_angles = [0, 30, 60, 90, 120, 150, 180]
 
-        # 向下透传max_depth到project_volume
         projections, depth_maps, angles_list = self.project_volume(
-            volume_data, view_angles, max_depth if max_depth is not None else np.inf
+            volume_data, view_angles
         )
 
         n_views = len(view_angles)
@@ -326,9 +338,7 @@ def analyze_volume(
     print(f"非零元素: {np.count_nonzero(volume_data)} / {volume_data.size}")
 
     # 生成投影
-    projections, depth_maps = projector.visualize_projections(
-        volume_data, view_angles, max_depth=500
-    )
+    projections, depth_maps = projector.visualize_projections(volume_data, view_angles)
 
     return projections, depth_maps
 

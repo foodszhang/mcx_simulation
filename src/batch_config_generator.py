@@ -18,7 +18,7 @@ from datetime import datetime
 
 # 随机种子由配置文件读取，确保仿真结果可复现
 # 注意：config应始终由主流程入口传入，此处禁止文件顶部直接读取！
-RANDOM_SEED = 23  # 默认占位，实际运行请传递config
+RANDOM_SEED = 44  # 默认占位，实际运行请传递config
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 DATE_STRING = datetime.now().strftime("%Y%m%d")
@@ -100,7 +100,7 @@ def generate_multi_blt_config(
             ),
         }
         # --- Forward 参数：由config统一读取 ---
-        forward = config.get("forward", {"T0": 0.0e00, "T1": 5.0e-09, "DT": 5.0e-09})
+        forward = config.get("forward", {"T0": 0.0e00, "T1": 5.0e-08, "DT": 5.0e-08})
 
         # --- 光源（Source）参数设定 ---
         source_filename = f"source-{config_idx}.bin"
@@ -111,7 +111,10 @@ def generate_multi_blt_config(
         )
         # 生成三维模式的光源体素数组及形状标签
         source_arr, _ = generate_multiple_shapes(
-            src_voxel_size, 1, max_rotation=max_rotation
+            src_voxel_size,
+            2,
+            max_rotation=max_rotation,
+            shape_types=file_naming.get("shape_types", ["sphere", "elliposoid"]),
         )
         full_source_path = os.path.join(config_subdir, source_filename)
         source_arr = source_arr.astype(np.float32)
@@ -157,9 +160,8 @@ def generate_multi_blt_config(
         # --- 保存无散射配置（mus=0） ---
         no_scatter_media = deepcopy(media_list)
         for media_item in no_scatter_media:
-            media_item["mua"] += media_item.get("mus", 0.0)
-            media_item["mua"] /= 100.0
-            media_item["mus"] = 0.0
+            # media_item["mua"] += media_item.get("mus", 0.0)
+            media_item["mus"] /= 100.0
         config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media
         # 用noscatter中的模板名，Session.ID也和json名模板一致，不带后缀
@@ -176,4 +178,4 @@ def generate_multi_blt_config(
 
 if __name__ == "__main__":
     # 演示：生成 1 个仿真配置
-    generate_multi_blt_config(4)
+    generate_multi_blt_config(200)

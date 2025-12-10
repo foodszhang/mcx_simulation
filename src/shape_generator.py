@@ -215,8 +215,8 @@ def generate_multiple_shapes(
                 rx = random.randint(min_rx, max_rx)
                 # 保证 ry/rz 为短轴，且长短轴比满足1.2~2
                 axis_ratio = random.uniform(1.2, 2.0)
-                min_ry = max(int(rx / axis_ratio), min_param)
-                max_ry = min(rx, max_param)
+                min_ry = int(rx / axis_ratio)
+                max_ry = rx
                 # 随机取短轴长度，且不超过长轴
                 ry = random.randint(min_ry, max_ry)
                 rz = random.randint(min_ry, max_ry)

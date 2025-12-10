@@ -164,8 +164,8 @@ def display_npz_diff_heatmaps(
 # 使用示例
 if __name__ == "__main__":
     # 示例1: 基本用法
-    npz_path = "./20251106/0/proj.npz"
-    no_npz_path = "./20251106/0/no_proj.npz"
+    npz_path = "./20251114/0/proj.npz"
+    no_npz_path = "./20251114/0/no_proj.npz"
     display_npz_heatmaps(npz_path, cmap="hot")
     display_npz_heatmaps(no_npz_path, cmap="hot")
     # display_npz_diff_heatmaps(npz_path, no_npz_path, cmap="bwr")

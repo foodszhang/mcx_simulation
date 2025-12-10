@@ -114,6 +114,6 @@ if __name__ == "__main__":
         x_range=[40, 120],  # 可行域x范围
         y_range=[20, 140],  # 可行域y范围
         z_range=[80, 160],  # 可行域z范围
-        block_size=(64, 64, 64),  # 块大小
+        block_size=(32, 32, 32),  # 块大小
         include_empty=True,  # 过滤空体素
     )

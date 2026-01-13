@@ -187,11 +187,17 @@ def generate_multiple_shapes(
     min_param=4,
     max_param=20,
     max_rotation=360,
+    target_scales=None,
+    mask=None,
+    mask_value=0,
 ):
     """
     在指定三维体素空间内生成多个随机不重叠三维几何体
     支持球、立方体、圆柱体批量生成，所有参数和流程均适配医学/深度学习数据工程标准
     返回三维数组(全体素体)及各形状参数字典列表
+    target_scales: 若指定，则按此目标尺度采样各 shape 尺寸参数（sphere/ellipsoid）
+    mask: 可选的掩码数组，限制形状放置的区域。若提供，形状只能放置在mask==mask_value的区域
+    mask_value: 掩码的目标值，用于确定允许放置形状的区域
     """
     voxel_volume = np.zeros(voxel_size, dtype=int)
     shapes_info = []
@@ -207,17 +213,17 @@ def generate_multiple_shapes(
         for _ in range(100):
             shape = random.choice(shape_types)
             param = None
-            # 椭球单独取长短轴参数
+            # ====== 条件采样：如有 target_scales，优先按目标尺度采样 ======
+            target_scale = None
             if shape == "ellipsoid":
-                # 长轴 rx, 短轴 ry/rz，比例1.2~2
+                # 采样 rx/ry/rz 使等效半径接近 target_scale
+                # 原有逻辑
                 min_rx = int(min_param * 1.2)
                 max_rx = int(max_param * 2)
                 rx = random.randint(min_rx, max_rx)
-                # 保证 ry/rz 为短轴，且长短轴比满足1.2~2
                 axis_ratio = random.uniform(1.2, 2.0)
                 min_ry = int(rx / axis_ratio)
                 max_ry = rx
-                # 随机取短轴长度，且不超过长轴
                 ry = random.randint(min_ry, max_ry)
                 rz = random.randint(min_ry, max_ry)
                 param = (rx, ry, rz)
@@ -233,7 +239,6 @@ def generate_multiple_shapes(
                 height = 5 * radius  # 可按需调整参数范围
                 param = (radius, height)
             else:
-                # 若未定义，默认sphere
                 radius = random.randint(min_param, max_param)
                 param = radius
             rotate_angles = (
@@ -243,6 +248,7 @@ def generate_multiple_shapes(
             )
             shape_array, shape_dims = gen_shape(shape, param, rotate_angles)
             max_pos = [voxel_size[i] - shape_dims[i] for i in range(3)]
+            # print("!!!!", max_pos, shape_dims, param)
             if any(dim <= 0 for dim in max_pos):
                 continue
             pos = (
@@ -255,7 +261,20 @@ def generate_multiple_shapes(
             z_slice = slice(pos[2], pos[2] + shape_dims[2])
             if np.any(voxel_volume[x_slice, y_slice, z_slice] != 0):
                 continue
+            # 检查mask约束：形状所在区域必须全部满足mask==mask_value
+            if mask is not None:
+                mask_region = mask[x_slice, y_slice, z_slice]
+                shape_region = shape_array > 0  # 形状非零区域
+                # 形状的所有非零体素位置的mask值必须等于mask_value
+                if not np.all(mask_region[shape_region] == mask_value):
+                    continue
             voxel_volume[x_slice, y_slice, z_slice] = shape_array
+            # 计算形状中心坐标
+            center = (
+                pos[0] + shape_dims[0] / 2.0,
+                pos[1] + shape_dims[1] / 2.0,
+                pos[2] + shape_dims[2] / 2.0,
+            )
             shapes_info.append(
                 {
                     "id": shape_id,
@@ -264,10 +283,13 @@ def generate_multiple_shapes(
                     "position": pos,
                     "rotation": rotate_angles,
                     "dimensions": shape_dims,
+                    "center": center,
                 }
             )
             placed = True
             break
         if not placed:
-            print(f"警告：无法放置第{shape_id}个形状（可能空间不足或尝试次数过多）")
+            print(
+                f"警告：无法放置第{shape_id}个形状（可能空间不足或尝试次数过多）!!!!!"
+            )
     return voxel_volume, shapes_info

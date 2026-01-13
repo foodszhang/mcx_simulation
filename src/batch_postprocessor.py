@@ -30,10 +30,14 @@ def generate_projection(entry_path, entry, config, sim_type="normal"):
     )
     proj_params = config.get("projection", {})
     # ==== 存储文件名均由 config['projection'] 配置，未设置时自动降级为默认名 ====
-    flux_proj_npz = config.get('projection', {}).get('flux_proj_npz', 'proj.npz')
-    depth_proj_npz = config.get('projection', {}).get('depth_proj_npz', 'dep_proj.npz')
-    no_flux_proj_npz = config.get('projection', {}).get('no_flux_proj_npz', 'no_proj.npz')
-    no_depth_proj_npz = config.get('projection', {}).get('no_depth_proj_npz', 'no_dep_proj.npz')
+    flux_proj_npz = config.get("projection", {}).get("flux_proj_npz", "proj.npz")
+    depth_proj_npz = config.get("projection", {}).get("depth_proj_npz", "dep_proj.npz")
+    no_flux_proj_npz = config.get("projection", {}).get(
+        "no_flux_proj_npz", "no_proj.npz"
+    )
+    no_depth_proj_npz = config.get("projection", {}).get(
+        "no_depth_proj_npz", "no_dep_proj.npz"
+    )
     if sim_type == "no_scatter":
         result_file = os.path.join(
             entry_path, format_filename(file_naming["noscatter"]["result"], entry)
@@ -55,6 +59,7 @@ def generate_projection(entry_path, entry, config, sim_type="normal"):
         flux = full_data["NIFTIData"][:, :, :, 0, 0]
     # 投影参数均从主流程透传的proj_params内读取，彻底去除硬编码
     angles = proj_params.get("angles", [-90, -60, -30, 0, 30, 60, 90])
+    print("234234234============", proj_params, angles, flux.shape)
     det_res = tuple(proj_params.get("detector_resolution", (256, 256)))
     flux_proj = {}
     depth_proj = {}
@@ -62,17 +67,15 @@ def generate_projection(entry_path, entry, config, sim_type="normal"):
         proj, depth = generate_projection_view_matrix(
             flux,
             angle,
-            200,
+            256,
             det_res,
             det_res,
         )
         flux_proj[f"{angle}"] = proj
         depth_proj[f"{angle}"] = depth
     np.savez(proj_data_path, **flux_proj)
-    np.savez(dep_proj_data_path, **flux_proj)
+    np.savez(dep_proj_data_path, **depth_proj)
     return 0
-
-
 
 
 def gen_other_all(entry_path, entry, config):
@@ -114,13 +117,20 @@ def process_folders(root_dir, config):
     # executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=4)
     results = []
+    file_naming = config.get(
+        "file_naming",
+        {
+            "normal": {"config": "{id}.json", "result": "{id}.jnii"},
+            "noscatter": {"config": "no_{id}.json", "result": "no_{id}.jnii"},
+        },
+    )
+
     for entry in os.listdir(root_dir):
         entry_path = os.path.join(root_dir, entry)
 
         # 检查是否是目录且名称为纯数字
         if os.path.isdir(entry_path) and entry.isdigit():
-            # 构建要执行的命令
-            json_file = f"{entry}.json"
+            json_file = format_filename(file_naming["normal"]["config"], entry)
             json_path = os.path.join(entry_path, json_file)
 
             # 检查JSON文件是否存在
@@ -129,16 +139,14 @@ def process_folders(root_dir, config):
                     f"警告: {json_file} 在 {entry_path} 中不存在，跳过该文件夹"
                 )
 
-            # 执行mcx命令
             try:
-                result_file = os.path.join(entry_path, f"{entry}.jnii")
+                result_file = os.path.join(
+                    entry_path, format_filename(file_naming["normal"]["result"], entry)
+                )
                 if not os.path.exists(result_file):
                     raise Exception(f"{result_file} 未生成！")
-                # tag_mat = np.fromfile("../volume_brain.bin")
-                # TODO: 这里硬编码了， 改日再改吧
-                # === 递进式参数化传递主流程投影配置 ===
-                proj_params = config.get("projection", {})
-                fut = executor.submit(gen_other_all, entry_path, entry, proj_params)
+
+                fut = executor.submit(gen_other_all, entry_path, entry, config)
                 results.append(fut)
 
             except subprocess.CalledProcessError as e:

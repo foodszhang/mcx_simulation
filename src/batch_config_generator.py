@@ -13,12 +13,15 @@ from copy import deepcopy
 from .load_config import load_config
 import yaml
 from src.shape_generator import generate_multiple_shapes
+
+# from src.ood_dataset_generator import generate_ood_splits, SPLIT_CONFIG
 import numpy as np
-from datetime import datetime
 
 # 随机种子由配置文件读取，确保仿真结果可复现
 # 注意：config应始终由主流程入口传入，此处禁止文件顶部直接读取！
-RANDOM_SEED = 44  # 默认占位，实际运行请传递config
+import time
+
+RANDOM_SEED = int(time.time())  # 默认占位，实际运行请传递config
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 DATE_STRING = datetime.now().strftime("%Y%m%d")
@@ -41,7 +44,6 @@ def generate_multi_blt_config(
     :param config: 全局配置参数，默认从文件顶部读取，避免重复读文件，提升效率
     """
     os.makedirs(output_dir, exist_ok=True)
-    from .randomize_media import randomize_media
 
     # --------------------------
     # 从 config.yaml 读取 volume 文件与 shape，材料路径及 media 列表
@@ -55,6 +57,7 @@ def generate_multi_blt_config(
     if not os.path.exists(volume_src_path):
         raise FileNotFoundError(f"体素文件不存在: {volume_src_path}")
     shutil.copy(volume_src_path, volume_dst_path)
+    volume = np.fromfile(volume_src_path, dtype=np.uint8).reshape(volume_shape)
 
     # 记录相对路径（每个子目录到output_dir根目录），配置文件统一使用 "../xxx.bin"
     volume_file = f"../{os.path.basename(volume_dst_path)}"
@@ -105,29 +108,57 @@ def generate_multi_blt_config(
         # --- 光源（Source）参数设定 ---
         source_filename = f"source-{config_idx}.bin"
         src_voxel_size = (
-            src_range_x[1] - src_range_x[0],
-            src_range_y[1] - src_range_y[0],
             src_range_z[1] - src_range_z[0],
+            src_range_y[1] - src_range_y[0],
+            src_range_x[1] - src_range_x[0],
         )
         # 生成三维模式的光源体素数组及形状标签
-        source_arr, _ = generate_multiple_shapes(
-            src_voxel_size,
-            2,
-            max_rotation=max_rotation,
-            shape_types=file_naming.get("shape_types", ["sphere", "elliposoid"]),
-        )
-        full_source_path = os.path.join(config_subdir, source_filename)
-        source_arr = source_arr.astype(np.float32)
-        source_arr.tofile(full_source_path)
-        # 转换为zyx顺序（物理仿真需求）
-        source_arr = source_arr.transpose(2, 1, 0)
-        # 将光源嵌入到体积数据指定区域，便于后续标签合成
-        source_pattern_in_vol = np.zeros(volume_shape, dtype=np.float32)
-        source_pattern_in_vol[
+        # ranadom num_shape
+        # # num_shapes = random.randint(1, 2)
+        # num_shapes = 3
+        # num_shapes = np.random.choice(
+        #     [1, 2, 3], p=[0.4, 0.5, 0.1], replace=True, size=1
+        # )[0]
+        num_shapes = np.random.choice(
+            [1, 2, 3], p=[0.3, 0.4, 0.3], replace=True, size=1
+        )[0]
+        # 从volume中提取src_range对应的ROI作为mask
+        roi_mask = volume[
             src_range_z[0] : src_range_z[1],
             src_range_y[0] : src_range_y[1],
             src_range_x[0] : src_range_x[1],
-        ] = np.where(source_arr > 0.5, 1, 0)
+        ]
+        source_arr, _ = generate_multiple_shapes(
+            src_voxel_size,
+            num_shapes,
+            max_rotation=max_rotation,
+            shape_types=file_naming.get("shape_types", ["sphere", "elliposoid"]),
+            # mask=roi_mask,
+            # mask_value=config.get("mask_background_value", 1),
+        )
+        full_source_path = os.path.join(config_subdir, source_filename)
+        source_arr = source_arr.astype(np.float32)
+        # source_arr = source_arr.transpose(2, 1, 0)
+        source_arr.tofile(full_source_path)
+        # source_arr = source_arr.transpose(2, 1, 0)
+        # 转换为zyx顺序（物理仿真需求）
+        # 将光源嵌入到体积数据指定区域，便于后续标签合成
+        # source_pattern_in_vol = np.zeros(volume_shape, dtype=np.float32)
+        # source_pattern_in_vol[
+        #     src_range_z[0] : src_range_z[1],
+        #     src_range_y[0] : src_range_y[1],
+        #     src_range_x[0] : src_range_x[1],
+        # ] = np.where(source_arr > 0.5, 1, 0)
+        all_vol = volume.copy()
+        # all_vol = np.where(source_pattern_in_vol > 0, 15, volume)
+        all_vol[
+            src_range_z[0] : src_range_z[1],
+            src_range_y[0] : src_range_y[1],
+            src_range_x[0] : src_range_x[1],
+        ] = np.where(source_arr > 0.5, 16, 0)
+        all_vol = all_vol.astype(np.uint8)
+        all_vol.tofile(os.path.join(config_subdir, "all.bin"))
+        #
         # --- Optode 光源配置结构 ---
         optode = {
             "Source": {
@@ -135,10 +166,10 @@ def generate_multi_blt_config(
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 "Pattern": {
-                    "Nx": src_voxel_size[0],
+                    "Nx": src_voxel_size[2],
                     "Ny": src_voxel_size[1],
                     "Data": source_filename,
-                    "Nz": src_voxel_size[2],
+                    "Nz": src_voxel_size[0],
                 },
                 "Param1": (src_voxel_size[2], src_voxel_size[1], src_voxel_size[0]),
             }
@@ -161,7 +192,8 @@ def generate_multi_blt_config(
         no_scatter_media = deepcopy(media_list)
         for media_item in no_scatter_media:
             # media_item["mua"] += media_item.get("mus", 0.0)
-            media_item["mus"] /= 100.0
+            # media_item["mus"] /= 100.0
+            media_item["mus"] = 0
         config_no_scatter = deepcopy(config_dict)
         config_no_scatter["Domain"]["Media"] = no_scatter_media
         # 用noscatter中的模板名，Session.ID也和json名模板一致，不带后缀

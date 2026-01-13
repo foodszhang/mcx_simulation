@@ -16,7 +16,7 @@ file_naming:
   - ellipsoid
   - sphere
   min_param: 4
-  max_param: 20
+  max_param: 10
   max_rotation: 30
 lengthunit: 0.1
 perturb_bounds:
@@ -28,14 +28,14 @@ forward:
   DT: 5.0e-09
 src_range:
   z:
-  - 60
-  - 120
+  - 70
+  - 110
   y:
-  - 40
-  - 140
-  x:
-  - 96
+  - 50
   - 130
+  x:
+  - 86
+  - 120
   max_rotation: 30
 projection:
   angles:

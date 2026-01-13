@@ -3,15 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-full_data = jd.loadjd("./20251106/0/0.jnii")
+full_data = jd.loadjd("./simple_brain_train/1/no_1.jnii")
 if len(full_data["NIFTIData"].shape) == 3:
     flux = full_data["NIFTIData"][:, :, :]
 else:
     flux = full_data["NIFTIData"][:, :, :, 0, 0]
-flux.tofile("./two_source_val/0/0.bin")
-q = np.where(flux > 1e7, 1, 0).astype(np.uint8)
-q.tofile("./two_source_val/0/0_s.bin")
-flux /= 1e4
+# flux.tofile("./two_source_train/0/0.bin")
+# q = np.where(flux > 1e7, 1, 0).astype(np.uint8)
+# q.tofile("./two_source_val/0/0_s.bin")
+flux /= 1e5
 
 # 确保中文显示正常
 plt.rcParams["font.family"] = ["SimHei"]

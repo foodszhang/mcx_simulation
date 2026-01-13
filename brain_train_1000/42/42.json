@@ -1,0 +1,75 @@
+{
+  "Domain": {
+    "VolumeFile": "../volume_brain.bin",
+    "Dim": [
+      182,
+      164,
+      210
+    ],
+    "OriginType": 1,
+    "LengthUnit": 0.1,
+    "Media": [
+      {
+        "mua": 0.0,
+        "mus": 0.0,
+        "g": 1.0,
+        "n": 1.0
+      },
+      {
+        "mua": 0.0921,
+        "mus": 0.619,
+        "g": 0.9,
+        "n": 1.37
+      },
+      {
+        "mua": 0.02083,
+        "mus": 2.49,
+        "g": 0.9,
+        "n": 1.37
+      },
+      {
+        "mua": 0.0648,
+        "mus": 2.392,
+        "g": 0.9,
+        "n": 1.37
+      }
+    ]
+  },
+  "Session": {
+    "Photons": 10000000,
+    "RNGSeed": 42,
+    "ID": "42"
+  },
+  "Forward": {
+    "T0": "0.0e00",
+    "T1": 5e-09,
+    "DT": 5e-09
+  },
+  "Optode": {
+    "Source": {
+      "Pos": [
+        70,
+        50,
+        86
+      ],
+      "Dir": [
+        0,
+        0,
+        1,
+        "_NaN_"
+      ],
+      "Type": "pattern3d",
+      "Pattern": {
+        "Nx": 34,
+        "Ny": 80,
+        "Data": "source-42.bin",
+        "Nz": 40
+      },
+      "Param1": [
+        34,
+        80,
+        40
+      ]
+    }
+  }
+}

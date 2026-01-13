@@ -8,13 +8,19 @@ import os
 
 
 def load_config(config_path=None):
-    """
-    加载YAML格式的全局仿真配置信息
-    :param config_path: 配置文件路径，默认为当前src目录下config.yaml
+    """加载YAML格式的全局仿真配置信息。
+
+    优先级：显式参数 > 环境变量 MCX_SIM_CONFIG_PATH/MCX_SIM_CONFIG > 默认 config/config.yaml。
+
+    :param config_path: 配置文件路径
     :return: 配置参数字典
     """
     if config_path is None:
+        config_path = os.getenv("MCX_SIM_CONFIG_PATH") or os.getenv("MCX_SIM_CONFIG")
+
+    if config_path is None:
         config_path = os.path.join(os.path.dirname(__file__), "../config/config.yaml")
+
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     return config

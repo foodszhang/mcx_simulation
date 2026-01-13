@@ -11,6 +11,40 @@ from datetime import datetime
 import random
 import numpy as np
 
+
+def _infer_target_label_from_volfile(volfile: str) -> int:
+    return 1
+
+
+def _try_place_source_within_mask(
+    source_zyx: np.ndarray, allowed_mask_zyx: np.ndarray, tries: int = 200
+) -> np.ndarray | None:
+    coords = np.argwhere(source_zyx > 0)
+    if coords.size == 0:
+        return np.zeros_like(allowed_mask_zyx, dtype=source_zyx.dtype)
+
+    z0, y0, x0 = coords.min(axis=0)
+    z1, y1, x1 = coords.max(axis=0) + 1
+    crop = source_zyx[z0:z1, y0:y1, x0:x1]
+
+    dz, dy, dx = crop.shape
+    mz, my, mx = allowed_mask_zyx.shape
+    if dz > mz or dy > my or dx > mx:
+        return None
+
+    for _ in range(tries):
+        oz = random.randint(0, mz - dz)
+        oy = random.randint(0, my - dy)
+        ox = random.randint(0, mx - dx)
+        sub = allowed_mask_zyx[oz : oz + dz, oy : oy + dy, ox : ox + dx]
+        if np.all(sub[crop > 0]):
+            out = np.zeros_like(allowed_mask_zyx, dtype=source_zyx.dtype)
+            out[oz : oz + dz, oy : oy + dy, ox : ox + dx] = crop
+            return out
+
+    return None
+
+
 # 获取当前日期
 current_date = datetime.now()
 
@@ -21,7 +55,7 @@ random.seed(42)
 
 def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
     os.makedirs(save_dir, exist_ok=True)
-    volfile, vol_shape, media, vol = gen_volume_and_media("brain", save_dir)
+    volfile, vol_shape, media, vol = gen_volume_and_media("abdomen", save_dir)
     for i in range(num):
         session = str(i)
         each_save_dir = os.path.join(save_dir, f"{i}")
@@ -54,31 +88,60 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
         }
 
         source_filename = f"source-{i}.bin"
-        range_z = (50, 120)
-        range_y = (160, 280)
-        range_x = (96, 140)
-        voxel_size = (
-            range_x[1] - range_x[0],
-            range_y[1] - range_y[0],
-            range_z[1] - range_z[0],
-        )
-        source, shapes = generate_multiple_shapes(voxel_size, 4, max_rotation=30)
-        print("66666", len(shapes))
+        # range_z = (50, 120)
+        # range_y = (160, 280)
+        # range_x = (96, 140)
+        range_z = (30, 280)
+        range_y = (170, 250)
+        range_x = (15, 280)
+
+        rz0, rz1 = max(0, range_z[0]), min(range_z[1], vol_shape[0])
+        ry0, ry1 = max(0, range_y[0]), min(range_y[1], vol_shape[1])
+        rx0, rx1 = max(0, range_x[0]), min(range_x[1], vol_shape[2])
+
+        voxel_size = (rx1 - rx0, ry1 - ry0, rz1 - rz0)
         full_source_filename = os.path.join(each_save_dir, source_filename)
-        source = source.astype(np.float32)
-        source.tofile(full_source_filename)
-        print("566666", source.dtype, source.shape)
-        source = source.transpose(2, 1, 0)
+
+        target_label = _infer_target_label_from_volfile(volfile)
+        allowed_mask = vol[rz0:rz1, ry0:ry1, rx0:rx1] == target_label
+        if not np.any(allowed_mask):
+            raise Exception(
+                f"ROI内找不到label={target_label} (volfile={volfile}), 请调整range或label映射"
+            )
+
+        # Debug: visualize ROI and allowed region (labels here are for inspection only)
+        roi_label = np.uint8(250)
+        allowed_label = np.uint8(251)
+        roi_tag = vol.astype(np.uint8).copy()
+        roi_tag[rz0:rz1, ry0:ry1, rx0:rx1] = roi_label
+        roi_tag.tofile(os.path.join(each_save_dir, "roi_tag.bin"))
+        print("!!!!!!", roi_tag.shape)
+
+        roi_allowed_tag = vol.astype(np.uint8).copy()
+        roi_allowed_tag[rz0:rz1, ry0:ry1, rx0:rx1] = np.where(
+            allowed_mask, allowed_label, roi_label
+        ).astype(np.uint8)
+        roi_allowed_tag.tofile(os.path.join(each_save_dir, "roi_allowed_tag.bin"))
+
+        placed_zyx = None
+        for _ in range(50):
+            source_xyz, shapes = generate_multiple_shapes(
+                voxel_size, 4, max_rotation=30
+            )
+            source_zyx = source_xyz.astype(np.float32).transpose(2, 1, 0)
+            placed_zyx = _try_place_source_within_mask(source_zyx, allowed_mask)
+            if placed_zyx is not None:
+                break
+        if placed_zyx is None:
+            raise Exception("无法在ROI的指定label区域内放置形状(尝试次数耗尽)")
+
+        placed_zyx.transpose(2, 1, 0).astype(np.float32).tofile(full_source_filename)
 
         ###TODO: 更智能的选择
         # 区域
 
         source_in_vol = np.zeros(vol_shape, dtype=np.float32)
-        source_in_vol[
-            range_z[0] : range_z[1],
-            range_y[0] : range_y[1],
-            range_x[0] : range_x[1],
-        ] = source
+        source_in_vol[rz0:rz1, ry0:ry1, rx0:rx1] = placed_zyx
         source_in_vol_filename = "source_in_vol.npy"
         full_source_in_vol_filename = os.path.join(
             each_save_dir, source_in_vol_filename
@@ -95,7 +158,7 @@ def gen_multi_single_blt_config(num=200, save_dir=f"./{today_ymd}"):
 
         Optode = {
             "Source": {
-                "Pos": [range_x[0], range_y[0], range_z[0]],
+                "Pos": [rx0, ry0, rz0],
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 # 光源维度

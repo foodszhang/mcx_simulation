@@ -21,6 +21,11 @@ green*/
 only_for_test/
 one_source*/
 preprocess*/
+output*/
+three*/
+two*/
+brain*/
+2026*/
 
 # Virtual environments
 .venv

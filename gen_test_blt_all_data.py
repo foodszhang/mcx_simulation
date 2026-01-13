@@ -1,5 +1,6 @@
 import subprocess
 import os
+import json
 import jdata as jd
 import numpy as np
 from get_simple_projection import get_projections
@@ -53,12 +54,12 @@ def process_folders(root_dir):
                 result_file = os.path.join(entry_path, f"{entry}.jnii")
                 if not os.path.exists(result_file):
                     raise Exception(f"{result_file} 未生成！")
-                # tag_mat = np.fromfile("../volume_brain.bin")
-                # TODO: 这里硬编码了， 改日再改吧
-                tag_mat_path = os.path.join(root_dir, f"volume_brain.bin")
-                tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape(
-                    [180, 300, 208]
-                )
+                with open(json_path, "r") as f:
+                    cfg = json.load(f)
+                vol_file_rel = cfg["Domain"]["VolumeFile"]
+                tag_mat_path = os.path.normpath(os.path.join(entry_path, vol_file_rel))
+                dim = cfg["Domain"]["Dim"]
+                tag_mat = np.fromfile(tag_mat_path, dtype=np.uint8).reshape(dim)
                 full_data = jd.loadjd(result_file)
                 if len(full_data["NIFTIData"].shape) == 3:
                     flux = full_data["NIFTIData"][:, :, :]
@@ -66,7 +67,9 @@ def process_folders(root_dir):
                     flux = full_data["NIFTIData"][:, :, :, 0, 0]
                 flux_data_path = os.path.join(entry_path, f"{entry}_flux.npy")
                 proj_data_path = os.path.join(entry_path, f"{entry}_proj.npy")
-                tag_data_path = os.path.join(root_dir, f"volume_brain.npy")
+                tag_data_path = os.path.join(
+                    root_dir, os.path.basename(tag_mat_path).replace(".bin", ".npy")
+                )
                 np.save(flux_data_path, flux)
                 if not os.path.exists(tag_data_path):
                     np.save(tag_data_path, tag_mat)
@@ -82,5 +85,5 @@ def process_folders(root_dir):
 
 if __name__ == "__main__":
     # 替换为你要遍历的根目录路径
-    root_directory = "./20251009/"
+    root_directory = "./20260113/"
     process_folders(root_directory)

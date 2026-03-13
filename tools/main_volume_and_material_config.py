@@ -16,7 +16,9 @@ import nibabel as nib
 import sys, os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+from skimage.transform import resize
 from src.load_config import load_config
+from src.mesh_generator import generate_mesh_from_volume
 
 
 def gen_volume_and_media(area, bin_dir="./", yaml_dir="./", config=None):
@@ -105,8 +107,45 @@ def gen_volume_and_media(area, bin_dir="./", yaml_dir="./", config=None):
             19: 9,  # 肾脏 -> 8
             21: 10,  # 肺 -> 9
         }
-    else:
-        raise Exception("当前仅支持area=brain，如需其他区域请补充实现")
+    elif area == "true_body":
+        img = nib.load("./ct_data/true_body.nii.gz")
+        tag_data = np.asanyarray(img.dataobj)
+        tag_data = tag_data.astype(np.uint8)
+        # tag_data = np.ascontiguousarray(tag_data)
+        tag_data = tag_data.transpose(0, 2, 1)
+        filename = "volume_true_body.bin"
+        # tag_data = tag_data[64:301, 285:495, :]
+        media = [
+            # 0: 背景
+            {"mua": 0.00, "mus": 0.0, "g": 1.00, "n": 1.0},
+            # 1: 皮肤及相关组织（皮肤、眼睛、咬肌、泪腺、膀胱、睾丸、肾上腺）
+            {"mua": 0.0338, "mus": 11.9827, "g": 0.9, "n": 1.37},
+            # 2: 骨骼
+            {"mua": 0.05251, "mus": 24.4153, "g": 0.9, "n": 1.37},
+            # 3: 肾脏
+            {"mua": 0.038, "mus": 19.2, "g": 0.89, "n": 1.37},
+            # 4: 膀胱
+            {"mua": 0.038, "mus": 19.2, "g": 0.89, "n": 1.37},
+            # # 5: 肿瘤
+            # {"mua": 0.0338, "mus": 11.9827, "g": 0.9, "n": 1.37},
+        ]
+        tag_data = np.pad(
+            tag_data,
+            pad_width=((1, 1), (1, 1), (1, 1)),
+            mode="constant",
+            constant_values=0,
+        )
+        tag_data = resize(
+            tag_data, (256, 256, 256), order=0, preserve_range=True
+        ).astype(np.uint8)
+        tag_mapping = {
+            0: 0,  # 背景
+            1: 1,  # 皮肤
+            2: 2,  # 骨骼
+            3: 3,
+            4: 4,
+            # 5: 5,
+        }
 
     simplified_tags = np.zeros_like(tag_data)
     if tag_mapping is not None:
@@ -124,6 +163,7 @@ def gen_volume_and_media(area, bin_dir="./", yaml_dir="./", config=None):
     full_bin_filename = os.path.join(bin_dir, filename)
     shapes = list(simplified_tags.shape)
     simplified_tags.tofile(full_bin_filename)
+    print("!!!!!2", simplified_tags.shape)
 
     # ==========生成材料参数YAML==========
     material_yaml_header = (
@@ -147,16 +187,8 @@ def gen_volume_and_media(area, bin_dir="./", yaml_dir="./", config=None):
     return filename, shapes, media, simplified_tags
 
 
-if __name__ == "__main__":
-    """主流程入口：生成体素bin/材料yaml，并回写到指定配置文件。"""
-
-    # 用法：python tools/main_volume_and_material_config.py --config config/config_breast.yaml
-    config_path = None
-    if "--config" in sys.argv:
-        idx = sys.argv.index("--config")
-        if idx + 1 < len(sys.argv):
-            config_path = sys.argv[idx + 1]
-
+def bootstrap_volume_and_material(config_path=None):
+    """生成体素bin/材料yaml，并把路径回写到目标配置文件。"""
     config = load_config(config_path)
     area = config.get("area", "brain")
     base_input_dir = config.get("base_input_dir", "./volume_bases")
@@ -170,9 +202,7 @@ if __name__ == "__main__":
         f"[仿真主流程启动] 区域: {area}, BIN输出: {bin_dir}, 材料YAML输出: {yaml_dir} (volume_bases基础输入目录)"
     )
 
-    filename, shapes, media, simplified_tags = gen_volume_and_media(
-        area, bin_dir, yaml_dir, config=config
-    )
+    filename, shapes, _, simplified_tags = gen_volume_and_media(area, bin_dir, yaml_dir, config=config)
     bin_path = os.path.abspath(os.path.join(bin_dir, filename))
     material_yaml_filename = (
         f"{config.get('species', 'rat')}_{area}_{config.get('wavelength', 780)}nm.yaml"
@@ -180,7 +210,26 @@ if __name__ == "__main__":
     yaml_path = os.path.abspath(os.path.join(yaml_dir, material_yaml_filename))
     print(f"[生成成功] 体素文件: {bin_path}, 尺寸: {shapes}, 材料文件: {yaml_path}")
 
-    # =========写入同一个 config.yaml 供后续流程读取=========
+    # ========== 生成高质量四面体网格 ==========
+    mesh_dir = os.path.join(base_input_dir, "mesh")
+    if not os.path.exists(mesh_dir):
+        os.makedirs(mesh_dir)
+    mesh_filename = f"{config.get('species', 'rat')}_{area}_mesh.npz"
+    mesh_path = os.path.abspath(os.path.join(mesh_dir, mesh_filename))
+    
+    print(f"[网格生成] 正在生成高质量四面体网格，目标节点数: 20000...")
+    # Read voxel_size (lengthunit) from config
+    dx = float(config.get("lengthunit", 0.1))
+    voxel_size = (dx, dx, dx)
+    
+    generate_mesh_from_volume(
+        simplified_tags, 
+        voxel_size=voxel_size, 
+        target_nodes=20000, 
+        output_filename=mesh_path
+    )
+    print(f"[网格生成] 网格已保存至: {mesh_path}")
+
     target_config_path = os.path.abspath(
         config_path or os.path.join(os.path.dirname(__file__), "../config/config.yaml")
     )
@@ -188,9 +237,26 @@ if __name__ == "__main__":
         all_config = yaml.safe_load(cf)
     all_config["generated_bin_path"] = bin_path
     all_config["generated_material_yaml_path"] = yaml_path
+    all_config["generated_mesh_path"] = mesh_path
+    all_config["volume_shape"] = list(shapes) # Update volume shape to match generated binary
+    
     with open(target_config_path, "w", encoding="utf-8") as cf:
         yaml.dump(all_config, cf, allow_unicode=True, sort_keys=False)
     print(
         f"[配置同步] 已将bin和材料参数yaml路径写入: {target_config_path}，供下游全流程读取！"
     )
+    return target_config_path
+
+
+if __name__ == "__main__":
+    """主流程入口：生成体素bin/材料yaml，并回写到指定配置文件。"""
+
+    # 用法：python tools/main_volume_and_material_config.py --config config/config_breast.yaml
+    config_path = None
+    if "--config" in sys.argv:
+        idx = sys.argv.index("--config")
+        if idx + 1 < len(sys.argv):
+            config_path = sys.argv[idx + 1]
+
+    bootstrap_volume_and_material(config_path=config_path)
 # 注意：主入口不允许return，流程仅日志输出，符合科研工程开发规范。

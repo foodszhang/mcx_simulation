@@ -1,4 +1,4 @@
-# --------------------------------------------------
+# ------a-------------------------------------------
 # 体积光学仿真配置生成脚本
 # --------------------------------------------------
 # 作者：foodszhang@gmail.com
@@ -65,8 +65,9 @@ def generate_multi_blt_config(
     src_range_z = config["src_range"]["z"]
     src_range_y = config["src_range"]["y"]
     src_range_x = config["src_range"]["x"]
-    max_rotation = config["src_range"].get("max_rotation", 30)
-    max_rotation = 0
+    shape_cfg = config.get("shape_generation", {})
+    max_rotation = shape_cfg.get("max_rotation", config["src_range"].get("max_rotation", 30))
+    # max_rotation = 0
 
     def format_filename(template, _id):
         return template.format(id=_id)
@@ -119,23 +120,44 @@ def generate_multi_blt_config(
         # num_shapes = np.random.choice(
         #     [1, 2, 3], p=[0.4, 0.5, 0.1], replace=True, size=1
         # )[0]
-        num_shapes = np.random.choice(
-            [1, 2, 3], p=[0.3, 0.4, 0.3], replace=True, size=1
-        )[0]
+        # num_shapes = np.random.choice(
+        #     [1, 2, 3], p=[0.3, 0.4, 0.3], replace=True, size=1
+        # )[0]
+        num_shapes = int(shape_cfg.get("num_shapes", 1))
+        shape_types = shape_cfg.get("shape_types") or file_naming.get(
+            "shape_types", ["ellipsoid", "sphere"]
+        )
+        min_param = int(shape_cfg.get("min_param", file_naming.get("min_param", 4)))
+        max_param = int(shape_cfg.get("max_param", file_naming.get("max_param", 10)))
         # 从volume中提取src_range对应的ROI作为mask
+        # Ensure slicing follows X, Y, Z order consistent with volume shape
         roi_mask = volume[
-            src_range_z[0] : src_range_z[1],
-            src_range_y[0] : src_range_y[1],
             src_range_x[0] : src_range_x[1],
+            src_range_y[0] : src_range_y[1],
+            src_range_z[0] : src_range_z[1],
         ]
+        
+        # Update voxel size to match roi_mask shape (handle potential truncation)
+        src_voxel_size = roi_mask.shape
+        
+        unique_vals = np.unique(roi_mask)
+        print(f"DEBUG: ROI mask shape: {roi_mask.shape}, Unique values: {unique_vals}, Target mask_value: {config.get('mask_background_value', 1)}")
+
         source_arr, _ = generate_multiple_shapes(
             src_voxel_size,
             num_shapes,
             max_rotation=max_rotation,
-            shape_types=file_naming.get("shape_types", ["sphere", "elliposoid"]),
-            # mask=roi_mask,
-            # mask_value=config.get("mask_background_value", 1),
+            min_param=min_param,
+            max_param=max_param,
+            shape_types=shape_types,
+            mask=roi_mask,
+            mask_value=config.get("mask_background_value", 1),
         )
+        if np.count_nonzero(source_arr) == 0:
+            raise ValueError(
+                "光源生成失败：source_pattern 为空。请检查 src_range、mask_background_value "
+                "以及 shape_generation.{num_shapes,min_param,max_param,shape_types} 配置。"
+            )
         full_source_path = os.path.join(config_subdir, source_filename)
         source_arr = source_arr.astype(np.float32)
         # source_arr = source_arr.transpose(2, 1, 0)
@@ -143,26 +165,27 @@ def generate_multi_blt_config(
         # source_arr = source_arr.transpose(2, 1, 0)
         # 转换为zyx顺序（物理仿真需求）
         # 将光源嵌入到体积数据指定区域，便于后续标签合成
-        # source_pattern_in_vol = np.zeros(volume_shape, dtype=np.float32)
-        # source_pattern_in_vol[
-        #     src_range_z[0] : src_range_z[1],
-        #     src_range_y[0] : src_range_y[1],
-        #     src_range_x[0] : src_range_x[1],
-        # ] = np.where(source_arr > 0.5, 1, 0)
-        all_vol = volume.copy()
-        # all_vol = np.where(source_pattern_in_vol > 0, 15, volume)
-        all_vol[
-            src_range_z[0] : src_range_z[1],
-            src_range_y[0] : src_range_y[1],
+        source_pattern_in_vol = np.zeros(volume_shape, dtype=np.float32)
+        source_pattern_in_vol[
             src_range_x[0] : src_range_x[1],
-        ] = np.where(source_arr > 0.5, 16, 0)
+            src_range_y[0] : src_range_y[1],
+            src_range_z[0] : src_range_z[1],
+        ] = np.where(source_arr > 0.5, 1, 0)
+        all_vol = volume.copy()
+        all_vol = np.where(source_pattern_in_vol > 0, 15, volume)
+        ##all_vol[
+        #    src_range_z[0] : src_range_z[1],
+        #    src_range_y[0] : src_range_y[1],
+        #    src_range_x[0] : src_range_x[1],
+        # ] = np.where(source_arr > 0.5, 16, 0)
+        # ] = 16
         all_vol = all_vol.astype(np.uint8)
         all_vol.tofile(os.path.join(config_subdir, "all.bin"))
         #
         # --- Optode 光源配置结构 ---
         optode = {
             "Source": {
-                "Pos": [src_range_z[0], src_range_y[0], src_range_x[0]],
+                "Pos": [float(src_range_x[0]), float(src_range_y[0]), float(src_range_z[0])],
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 "Pattern": {

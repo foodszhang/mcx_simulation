@@ -1,0 +1,7 @@
+这个是数字鼠的前向仿真，单光源。主程序是FMTadapt.m，子程序说明：
+preAmiraMesh.m	amira网格数据读取，就是获得节点，四面体单元等信息；
+FEMLinear.m	刚度矩阵形成
+given.m	荧光团设置，即荧光产额的设置
+Initialization.m	光学参数读取
+sourcesetup.m	激发光源的设置，比如设置多少个激发光等
+get_surface_energy.m	表面能量提取

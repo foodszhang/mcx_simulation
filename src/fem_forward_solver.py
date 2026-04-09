@@ -53,10 +53,14 @@ class FemDiffusionSolver:
         # Build cell lookup if cell_coords is available (for voxel-based meshes)
         self.cell_lookup = {}
         if self.mesh.cell_coords is not None and self.mesh.cell_nodes is not None:
+            print(f"DEBUG: Building cell lookup for {len(self.mesh.cell_coords)} cells...")
             self.cell_lookup = {
                 tuple(coord.tolist()): nodes
                 for coord, nodes in zip(self.mesh.cell_coords, self.mesh.cell_nodes)
             }
+            print(f"DEBUG: Cell lookup built.")
+        else:
+            print("DEBUG: No cell_coords found in mesh. Using map_coordinates fallback.")
             
         self.system_matrix: csr_matrix | None = None
         self._linear_solver = None
@@ -84,8 +88,13 @@ class FemDiffusionSolver:
         if self.mesh_cache_path and os.path.exists(self.mesh_cache_path):
             mesh = load_mesh(self.mesh_cache_path)
         else:
+            # FIX: Transpose volume from XYZ (disk/nibabel) to ZYX (mesh builder expectation)
+            # build_tetrahedral_mesh_from_volume assumes input is ZYX (dim0=Z, dim1=Y, dim2=X)
+            # But self.volume_data is loaded as XYZ.
+            volume_zyx = self.volume_data.transpose(2, 1, 0)
+            
             mesh = build_tetrahedral_mesh_from_volume(
-                self.volume_data,
+                volume_zyx,
                 dx=self.dx,
                 mesh_config=mesh_config,
             )
@@ -97,38 +106,136 @@ class FemDiffusionSolver:
         if self.system_matrix is not None:
             return self.system_matrix
 
-        rows: list[int] = []
-        cols: list[int] = []
-        data: list[float] = []
-
-        for elem_idx, element in enumerate(self.mesh.elements):
-            self._current_element_idx = elem_idx
-            points = self.mesh.nodes[element]
-            local_matrix = self._assemble_element_matrix(points, element)
-            for i_local, i_global in enumerate(element):
-                for j_local, j_global in enumerate(element):
-                    value = local_matrix[i_local, j_local]
-                    if value != 0.0:
-                        rows.append(int(i_global))
-                        cols.append(int(j_global))
-                        data.append(float(value))
-
-        for face in self.mesh.boundary_faces:
-            face_matrix = self._assemble_boundary_face_matrix(face)
-            for i_local, i_global in enumerate(face):
-                for j_local, j_global in enumerate(face):
-                    value = face_matrix[i_local, j_local]
-                    if value != 0.0:
-                        rows.append(int(i_global))
-                        cols.append(int(j_global))
-                        data.append(float(value))
-
+        # Vectorized assembly
         n_nodes = len(self.mesh.nodes)
+        n_elems = len(self.mesh.elements)
+        elements = self.mesh.elements # (Ne, 4)
+        
+        # 1. Geometric calculation
+        # Coords: (Ne, 4, 3)
+        coords = self.mesh.nodes[elements]
+        
+        # Transforms: (Ne, 4, 4)
+        transforms = np.ones((n_elems, 4, 4), dtype=np.float64)
+        transforms[:, :, 1:] = coords 
+        
+        # Determinants and Volumes
+        dets = np.linalg.det(transforms)
+        volumes = np.abs(dets) / 6.0
+        # Filter degenerate elements
+        valid_mask = volumes > 1e-12
+        
+        # Only process valid elements
+        if not np.all(valid_mask):
+            logging.warning(f"Found {np.sum(~valid_mask)} degenerate elements (volume < 1e-12). Skipping.")
+            elements = elements[valid_mask]
+            transforms = transforms[valid_mask]
+            volumes = volumes[valid_mask]
+            coords = coords[valid_mask]
+            n_elems = len(elements)
+            
+            # Update properties if not None
+            if self.mesh.element_kappa is not None:
+                elem_kappa = self.mesh.element_kappa[valid_mask]
+                elem_mua = self.mesh.element_mua[valid_mask]
+            else:
+                 # Should not happen if initialized
+                 elem_kappa = np.zeros(n_elems)
+                 elem_mua = np.zeros(n_elems)
+        else:
+            elem_kappa = self.mesh.element_kappa
+            elem_mua = self.mesh.element_mua
+
+        # Inverses: (Ne, 4, 4)
+        inv_transforms = np.linalg.inv(transforms)
+        # Gradients: (Ne, 3, 4) -> Transpose to (Ne, 4, 3) for efficient matmul?
+        # grads = inv_transforms[:, 1:, :] # (Ne, 3, 4)
+        # We need (grads.T @ grads) which is (4,3) @ (3,4) -> (4,4) for each element
+        # inv_transforms is (Ne, 4, 4). Row 0 is irrelevant for grads.
+        # Columns 1,2,3 are derivatives wrt x,y,z?
+        # transform * [1, x, y, z]^T = [1, 0, 0, 0]^T (for node 0) ?
+        # Actually inv_transform rows 1,2,3 are gradients.
+        grads = inv_transforms[:, 1:, :] # (Ne, 3, 4)
+        
+        # Stiffness Term: volume * (grads.T @ grads)
+        # (Ne, 4, 3) @ (Ne, 3, 4) -> (Ne, 4, 4)
+        grads_T = grads.transpose(0, 2, 1) # (Ne, 4, 3)
+        k_geo = np.matmul(grads_T, grads) # (Ne, 4, 4)
+        k_geo *= volumes[:, None, None]
+        
+        # Mass Term: volume / 20 * mass_structure
+        mass_struct = np.array(
+            [
+                [2.0, 1.0, 1.0, 1.0],
+                [1.0, 2.0, 1.0, 1.0],
+                [1.0, 1.0, 2.0, 1.0],
+                [1.0, 1.0, 1.0, 2.0],
+            ],
+            dtype=np.float64,
+        )
+        m_geo = (volumes / 20.0)[:, None, None] * mass_struct[None, :, :]
+        
+        # Combine: kappa * K + mua * M
+        local_matrices = (
+            elem_kappa[:, None, None] * k_geo + 
+            elem_mua[:, None, None] * m_geo
+        ) # (Ne, 4, 4)
+        
+        # 2. COO Assembly
+        # Rows: (Ne, 4, 1) broadcast to (Ne, 4, 4)
+        # Cols: (Ne, 1, 4) broadcast to (Ne, 4, 4)
+        rows = elements[:, :, None] * np.ones((1, 4), dtype=np.int32)
+        rows = rows.reshape(-1)
+        
+        cols = elements[:, None, :] * np.ones((4, 1), dtype=np.int32)
+        cols = cols.reshape(-1)
+        
+        data = local_matrices.reshape(-1)
+        
+        # Boundary Conditions (Robin)
+        # (Nb, 3)
+        b_faces = self.mesh.boundary_faces
+        if len(b_faces) > 0:
+            b_coords = self.mesh.nodes[b_faces] # (Nb, 3, 3)
+            # Area calculation
+            v1 = b_coords[:, 1] - b_coords[:, 0]
+            v2 = b_coords[:, 2] - b_coords[:, 0]
+            cross = np.cross(v1, v2)
+            areas = 0.5 * np.linalg.norm(cross, axis=1)
+            
+            # KSI
+            if self.mesh.ksi is not None:
+                # Mean ksi per face
+                face_ksi = np.mean(self.mesh.ksi[b_faces], axis=1)
+            else:
+                face_ksi = np.ones(len(b_faces)) # Default?
+                
+            # Boundary matrices (Nb, 3, 3)
+            b_struct = np.array(
+                [
+                    [2.0, 1.0, 1.0],
+                    [1.0, 2.0, 1.0],
+                    [1.0, 1.0, 2.0],
+                ],
+                dtype=np.float64,
+            )
+            b_matrices = (face_ksi * areas / 12.0)[:, None, None] * b_struct[None, :, :]
+            
+            b_rows = np.broadcast_to(b_faces[:, :, None], (len(b_faces), 3, 3)).reshape(-1)
+            b_cols = np.broadcast_to(b_faces[:, None, :], (len(b_faces), 3, 3)).reshape(-1)
+            b_data = b_matrices.reshape(-1)
+            
+            # Append to main arrays
+            rows = np.concatenate([rows, b_rows])
+            cols = np.concatenate([cols, b_cols])
+            data = np.concatenate([data, b_data])
+
         self.system_matrix = coo_matrix(
             (data, (rows, cols)),
             shape=(n_nodes, n_nodes),
             dtype=np.float64,
         ).tocsr()
+        
         diagonal_shift = float(self.fem_config.get("diagonal_regularization", 1e-8))
         self.system_matrix = self.system_matrix + sparse_eye(n_nodes, format="csr") * diagonal_shift
         return self.system_matrix
@@ -215,9 +322,8 @@ class FemDiffusionSolver:
             # Assuming origin is (0,0,0) and spacing is dx
             dx = self.dx
             node_voxel_coords = self.mesh.nodes[:, ::-1] / dx  # XYZ -> ZYX?
-            # Wait, mesh.nodes is usually XYZ (since it comes from tetgen/vtk)
+            # mesh.nodes is XYZ
             # Volume is ZYX (since it comes from numpy/nibabel)
-            # My mesh_generator.py: nodes = np.column_stack([zyx[:,2]*s[2], zyx[:,1]*s[1], zyx[:,0]*s[0]]) -> X, Y, Z
             # So mesh.nodes is X, Y, Z.
             # Volume is Z, Y, X.
             # So to map nodes to volume indices:
@@ -235,11 +341,14 @@ class FemDiffusionSolver:
             x_idx = x_mm / dx
             
             # Interpolate source value at each node
-            # order=1 (linear) or 0 (nearest)? Since source is binary/sharp, 0 might be better or 1 for smoothing.
-            # Let's use 1 to allow sub-voxel source distribution.
+            # source_pattern is ZYX. map_coordinates expects coords in (Z, Y, X) order.
+            # So coords = [z_idx, y_idx, x_idx]
+            
+            coords = np.vstack([z_idx, y_idx, x_idx])
+            
             rhs = map_coordinates(
                 source_pattern, 
-                np.vstack((z_idx, y_idx, x_idx)), 
+                coords, 
                 order=1, 
                 mode='nearest'
             ).astype(np.float64)
@@ -259,7 +368,7 @@ class FemDiffusionSolver:
             else:
                  # Find nearest node to volume center
                  vol_center_idx = np.array(source_pattern.shape) / 2.0
-                 vol_center_mm = vol_center_idx[::-1] * self.dx  # ZYX -> XYZ
+                 vol_center_mm = vol_center_idx * self.dx  # XYZ -> XYZ
                  dists = np.linalg.norm(self.mesh.nodes - vol_center_mm, axis=1)
                  nearest_node = np.argmin(dists)
                  rhs[nearest_node] = 1.0
@@ -273,10 +382,36 @@ class FemDiffusionSolver:
             return self._linear_solver
 
         matrix = self.build_system_matrix()
+        
+        # Use iterative solver for large matrices (N > 500000)
+        if matrix.shape[0] > 500000:
+            print(f"DEBUG: Using Iterative Solver (BiCGSTAB) for matrix size {matrix.shape[0]}")
+            from scipy.sparse.linalg import bicgstab, spilu, LinearOperator
+            
+            # Preconditioner
+            try:
+                ilu = spilu(matrix.tocsc(), drop_tol=1e-4, fill_factor=2.0)
+                M = LinearOperator(matrix.shape, matvec=ilu.solve)
+            except Exception:
+                M = None
+                
+            def iterative_solve(rhs):
+                x, info = bicgstab(matrix, rhs, M=M, rtol=1e-6, maxiter=1000)
+                if info != 0:
+                    logging.warning(f"BiCGSTAB did not converge (info={info})")
+                return x
+                
+            self._linear_solver = iterative_solve
+            self._lu_solver = None # No direct solver
+            return self._linear_solver
+
         try:
+            print(f"DEBUG: Computing LU Decomposition for matrix size {matrix.shape[0]}...")
             self._lu_solver = splu(matrix.tocsc())
             self._linear_solver = self._lu_solver.solve
+            print(f"DEBUG: LU Decomposition complete.")
         except Exception:
+            print(f"DEBUG: LU Decomposition failed. Trying with regularization...")
             diagonal_shift = float(self.fem_config.get("fallback_regularization", 1e-6))
             stabilized = matrix + sparse_eye(matrix.shape[0], format="csr") * diagonal_shift
             self._lu_solver = splu(stabilized.tocsc())
@@ -284,18 +419,13 @@ class FemDiffusionSolver:
         return self._linear_solver
 
     def _get_lu_solver(self):
+        # Alias to _get_linear_solver but returns the object if possible
+        # For iterative solver, this might return None or raise error if called explicitly
         if self._lu_solver is not None:
-            return self._lu_solver
-
-        matrix = self.build_system_matrix()
-        try:
-            self._lu_solver = splu(matrix.tocsc())
-            self._linear_solver = self._lu_solver.solve
-        except Exception:
-            diagonal_shift = float(self.fem_config.get("fallback_regularization", 1e-6))
-            stabilized = matrix + sparse_eye(matrix.shape[0], format="csr") * diagonal_shift
-            self._lu_solver = splu(stabilized.tocsc())
-            self._linear_solver = self._lu_solver.solve
+             return self._lu_solver
+        
+        # Trigger build
+        self._get_linear_solver()
         return self._lu_solver
 
     def solve_from_rhs(self, rhs: np.ndarray) -> np.ndarray:
@@ -312,10 +442,6 @@ class FemDiffusionSolver:
                 self._linear_solver = self._lu_solver.solve
                 solution = self._linear_solver(np.asarray(rhs, dtype=np.float64))
         return np.asarray(solution, dtype=np.float64)
-
-    def solve(self, source_pattern: np.ndarray, normalize: bool = True) -> np.ndarray:
-        rhs = self.build_source_vector(source_pattern, normalize=normalize)
-        return self.solve_from_rhs(rhs)
 
     def solve_excitation(
         self,
@@ -351,29 +477,174 @@ class FemDiffusionSolver:
         return self.solve_from_rhs(rhs)
 
     def solve_multiple_rhs(self, rhs_matrix: np.ndarray) -> np.ndarray:
-        lu_solver = self._get_lu_solver()
         rhs_matrix = np.asarray(rhs_matrix, dtype=np.float64)
         if rhs_matrix.ndim != 2:
             raise ValueError("rhs_matrix 必须是二维数组，形状为 [n_nodes, n_rhs]。")
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", MatrixRankWarning)
-            try:
-                solution = lu_solver.solve(rhs_matrix)
-            except MatrixRankWarning:
-                diagonal_shift = float(self.fem_config.get("fallback_regularization", 1e-6))
-                matrix = self.build_system_matrix()
-                stabilized = matrix + sparse_eye(matrix.shape[0], format="csr") * diagonal_shift
-                self._lu_solver = splu(stabilized.tocsc())
-                self._linear_solver = self._lu_solver.solve
-                solution = self._lu_solver.solve(rhs_matrix)
+            
+        solver = self._get_linear_solver()
+        n_rhs = rhs_matrix.shape[1]
+        n_nodes = rhs_matrix.shape[0]
+        solution = np.zeros_like(rhs_matrix)
+        
+        # Check if we have a direct LU solver (fast for multiple RHS)
+        if self._lu_solver is not None:
+             solution = self._lu_solver.solve(rhs_matrix)
+        else:
+             # Loop for iterative solver
+             print(f"Using iterative solver for {n_rhs} RHS vectors...")
+             for i in range(n_rhs):
+                 if i % 10 == 0: print(f"Solving RHS {i}/{n_rhs}")
+                 solution[:, i] = solver(rhs_matrix[:, i])
+                 
         return np.asarray(solution, dtype=np.float64)
+
+    def solve(self, source_pattern: np.ndarray, normalize: bool = True) -> np.ndarray:
+        """
+        Solves the forward problem.
+        If source_pattern is a 1D array matching node count, it's treated as a RHS vector.
+        Otherwise, it's treated as a spatial source pattern (volume or indices) and mapped to nodes.
+        """
+        # Heuristic: if 1D and length equals node count, assume it's already a RHS vector
+        if source_pattern.ndim == 1 and source_pattern.shape[0] == len(self.mesh.nodes):
+            return self.solve_from_rhs(source_pattern)
+            
+        rhs = self.build_source_vector(source_pattern, normalize=normalize)
+        return self.solve_from_rhs(rhs)
+
+    def solve_adjoint(self, rhs: np.ndarray) -> np.ndarray:
+        """Solves adjoint problem A^T psi = rhs. For diffusion, A is symmetric."""
+        return self.solve_from_rhs(rhs)
+
+    def update_properties(self, new_mua: np.ndarray, new_mus: np.ndarray = None) -> None:
+        """
+        Updates elemental optical properties and invalidates system matrix.
+        new_mua: (n_elements,) array of absorption coefficients.
+        new_mus: (n_elements,) array of reduced scattering coefficients. 
+                 If None, uses existing mus.
+        """
+        if new_mua.shape[0] != len(self.mesh.elements):
+            raise ValueError(f"Shape mismatch: new_mua {new_mua.shape} != elements {len(self.mesh.elements)}")
+            
+        self.mesh.element_mua = new_mua.astype(np.float64)
+        
+        if new_mus is not None:
+             if new_mus.shape[0] != len(self.mesh.elements):
+                 raise ValueError(f"Shape mismatch: new_mus {new_mus.shape} != elements {len(self.mesh.elements)}")
+             self.mesh.element_mus = new_mus.astype(np.float64)
+             
+        # Recompute kappa = 1 / (3 * (mua + mus'))
+        # Note: assumes mus is mus' (reduced scattering) as per diffusion approx standard
+        mus_prime = self.mesh.element_mus
+        # Avoid division by zero
+        total_interaction = self.mesh.element_mua + mus_prime
+        total_interaction[total_interaction < 1e-12] = 1e-12
+        self.mesh.element_kappa = 1.0 / (3.0 * total_interaction)
+        
+        # Invalidate system matrix
+        self.system_matrix = None
+        self._linear_solver = None
+        self._lu_solver = None
+
+    def get_element_geometric_matrices(self, element_idx: int) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns geometric parts of (stiffness, mass) matrices for the given element index.
+        K_geo = volume * (grads.T @ grads)
+        M_geo = volume / 20 * [mass_structure]
+        
+        Actual element matrix is: kappa * K_geo + mua * M_geo
+        Jacobian wrt mua is: d(kappa)/d(mua) * K_geo + M_geo
+        """
+        element = self.mesh.elements[element_idx]
+        points = self.mesh.nodes[element]
+        
+        x1, y1, z1 = points[0]
+        x2, y2, z2 = points[1]
+        x3, y3, z3 = points[2]
+        x4, y4, z4 = points[3]
+        
+        transform = np.array(
+            [
+                [1.0, x1, y1, z1],
+                [1.0, x2, y2, z2],
+                [1.0, x3, y3, z3],
+                [1.0, x4, y4, z4],
+            ],
+            dtype=np.float64,
+        )
+        
+        # Volume
+        det_transform = np.linalg.det(transform)
+        volume = abs(det_transform) / 6.0
+        
+        if volume < 1e-12:
+            return np.zeros((4, 4)), np.zeros((4, 4))
+
+        # Gradients (Nabla N)
+        inv_transform = np.linalg.inv(transform)
+        grads = inv_transform[1:, :] # (3, 4)
+
+        k_geo = volume * (grads.T @ grads)
+        m_geo = volume / 20.0 * np.array(
+            [
+                [2.0, 1.0, 1.0, 1.0],
+                [1.0, 2.0, 1.0, 1.0],
+                [1.0, 1.0, 2.0, 1.0],
+                [1.0, 1.0, 1.0, 2.0],
+            ],
+            dtype=np.float64,
+        )
+        return k_geo, m_geo
+
+    def get_all_element_gradients_and_volumes(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns:
+            grads: (n_elements, 3, 4) array of shape function gradients.
+            volumes: (n_elements,) array of element volumes.
+        """
+        elements = self.mesh.elements
+        nodes = self.mesh.nodes
+        
+        # (n_elements, 4, 3)
+        points = nodes[elements]
+        
+        n_elems = len(elements)
+        
+        # Construct transform matrices (n_elements, 4, 4)
+        # Row 0 is [1, x1, y1, z1]
+        # But wait, logic in _assemble is:
+        # transform = [[1, x1, y1, z1], ...]
+        # This is (4, 4).
+        
+        transforms = np.ones((n_elems, 4, 4), dtype=np.float64)
+        transforms[:, :, 1:] = points # Copy xyz into cols 1,2,3
+        
+        # Compute determinants and volumes
+        # numpy.linalg.det supports stacking
+        dets = np.linalg.det(transforms)
+        volumes = np.abs(dets) / 6.0
+        
+        # Compute gradients
+        # inv_transforms = np.linalg.inv(transforms)
+        # grads = inv_transforms[:, 1:, :] # (n_elems, 3, 4)
+        
+        # Using linalg.inv on stack
+        inv_transforms = np.linalg.inv(transforms)
+        grads = inv_transforms[:, 1:, :]
+        
+        return grads, volumes
 
     def sample_to_volume(self, nodal_fluence: np.ndarray) -> np.ndarray:
         sampled = np.zeros(self.volume_shape, dtype=np.float32)
         
         # Case 1: Voxel-aligned mesh (Legacy)
         if self.mesh.voxel_shape is not None and self.mesh.cell_coords is not None:
-            factor = int(self.fem_config.get("mesh", {}).get("downsample_factor", 8))
+            # Auto-detect downsample factor from volume/mesh shape ratio
+            # Use X-dimension as reference
+            if self.mesh.voxel_shape[0] > 0:
+                factor = int(round(self.volume_shape[0] / self.mesh.voxel_shape[0]))
+            else:
+                factor = int(self.fem_config.get("mesh", {}).get("downsample_factor", 8))
+                
             coarse = np.zeros(tuple(int(v) for v in self.mesh.voxel_shape.tolist()), dtype=np.float32)
             for coord, nodes in zip(self.mesh.cell_coords, self.mesh.cell_nodes):
                 coarse[coord[0], coord[1], coord[2]] = float(np.mean(nodal_fluence[nodes]))
@@ -441,10 +712,13 @@ class FemDiffusionSolver:
         # meshgrid 'ij' -> (nx, ny, nz)
         # sampled expects (nz, ny, nx)
         
-        # Let's use coordinate arrays
+        # Meshgrid should be (Z, Y, X) because sampled is ZYX
+        # Inputs to meshgrid: z_range, y_range, x_range
+        # indexing='ij' -> grid_z, grid_y, grid_x
         grid_z, grid_y, grid_x = np.meshgrid(z_range, y_range, x_range, indexing='ij')
-        # Convert to physical coordinates (x, y, z)
-        # grid_x is (nz, ny, nx)
+        
+        # Query points should be (X, Y, Z) to match mesh nodes (nodes[:,0]=x, nodes[:,1]=y, nodes[:,2]=z)
+        # grid_x contains X coordinates.
         query_points = np.column_stack([
             grid_x.ravel() * dx,
             grid_y.ravel() * dx,
@@ -453,11 +727,23 @@ class FemDiffusionSolver:
         
         values = griddata(nodes, nodal_fluence, query_points, method='nearest', fill_value=0.0)
         
-        # Reshape to (nz, ny, nx)
+        # Result shape is (len(z), len(y), len(x))
         sub_volume = values.reshape(len(z_range), len(y_range), len(x_range))
         
-        # Place into full volume
-        sampled[min_idx[2]:max_idx[2], min_idx[1]:max_idx[1], min_idx[0]:max_idx[0]] = sub_volume
+        # Slice sampled[z_slice, y_slice, x_slice]
+        # x_range corresponds to x_indices (dim 2)
+        # y_range corresponds to y_indices (dim 1)
+        # z_range corresponds to z_indices (dim 0)
+        
+        # min_idx is [min_x, min_y, min_z] (from nodes bounds / dx)
+        # So min_idx[0] is X start, min_idx[1] is Y start, min_idx[2] is Z start.
+        
+        # sampled expects Z, Y, X slicing
+        z_start, z_end = z_range[0], z_range[-1]+1
+        y_start, y_end = y_range[0], y_range[-1]+1
+        x_start, x_end = x_range[0], x_range[-1]+1
+        
+        sampled[z_start:z_end, y_start:y_end, x_start:x_end] = sub_volume
         
         return sampled
 
@@ -507,8 +793,8 @@ class BatchFemForwardSolver:
         volume_shape = np.array(self.config["volume_shape"], dtype=np.float64)
         dx = float(self.config.get("lengthunit", 0.1))
         # Volume center in physical coords (XYZ)
-        # Note: volume_shape is ZYX. center = (X_dim, Y_dim, Z_dim) / 2
-        center = (volume_shape[::-1] * dx) / 2.0
+        # config["volume_shape"] is XYZ.
+        center = (volume_shape * dx) / 2.0
         
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -577,28 +863,39 @@ class BatchFemForwardSolver:
                 self._save_sample_outputs(entry, config_subdir, nodal_fluence, suffix)
 
     def _reconstruct_source_pattern(self, config_idx: int, config_subdir: str) -> np.ndarray:
-        volume_shape = tuple(self.config["volume_shape"])
+        # Use solver's volume shape (ZYX) to match internal logic
+        volume_shape = self.solver.volume_shape 
+        
         src_range_z = self.config["src_range"]["z"]
         src_range_y = self.config["src_range"]["y"]
         src_range_x = self.config["src_range"]["x"]
+        
         source_filename = f"source-{config_idx}.bin"
         source_path = os.path.join(config_subdir, source_filename)
         if not os.path.exists(source_path):
             raise FileNotFoundError(f"光源文件不存在: {source_path}")
 
         # Compute valid ranges (truncation handling to match batch_config_generator)
-        x0 = max(0, src_range_x[0])
-        x1 = min(volume_shape[0], src_range_x[1])
+        # Note: volume_shape is (Z, Y, X)
+        z0 = max(0, src_range_z[0])
+        z1 = min(volume_shape[0], src_range_z[1])
         y0 = max(0, src_range_y[0])
         y1 = min(volume_shape[1], src_range_y[1])
-        z0 = max(0, src_range_z[0])
-        z1 = min(volume_shape[2], src_range_z[1])
-
-        src_shape = (x1 - x0, y1 - y0, z1 - z0)
+        x0 = max(0, src_range_x[0])
+        x1 = min(volume_shape[2], src_range_x[1])
         
-        source_arr = np.fromfile(source_path, dtype=np.float32).reshape(src_shape)
+        dz = z1 - z0
+        dy = y1 - y0
+        dx = x1 - x0
+        src_shape_zyx = (dz, dy, dx)
+        
+        # Load ZYX directly (matching batch_config_generator save format)
+        source_arr_zyx = np.fromfile(source_path, dtype=np.float32).reshape(src_shape_zyx)
+        
         source_pattern = np.zeros(volume_shape, dtype=np.float32)
-        source_pattern[x0:x1, y0:y1, z0:z1] = np.where(source_arr > 0.5, 1.0, 0.0)
+        # Place into ZYX volume
+        source_pattern[z0:z1, y0:y1, x0:x1] = np.where(source_arr_zyx > 0.5, 1.0, 0.0)
+        
         return source_pattern
 
     def _save_sample_outputs(

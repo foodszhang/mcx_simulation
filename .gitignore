@@ -35,3 +35,7 @@ utasd k
 output*/
 brain*/
 breast*/
+true_*/
+*.nii.gz
+*.png
+*.7z

@@ -35,7 +35,7 @@ shape_generation:
 src_range:
   z:
   - 140
-  - 200
+  - 160
   y:
   - 50
   - 120
@@ -58,6 +58,7 @@ excitation_source:
   - 1.0
 inverse:
   source_inverse:
+    basis_mode: fem_node
     observation_mode: visible_surface_nodes
     angles:
     - 0

@@ -1,0 +1,112 @@
+area: brain
+fem:
+  mesh:
+    downsample_factor: 1
+    method: external_mesh
+    path: /home/foods/pro/mcx_simulation/volume_bases/mesh/rat_brain_mesh.npz
+  mesh_cache_name: brain_fem_mesh.npz
+file_naming:
+  max_param: 10
+  max_rotation: 30
+  min_param: 4
+  normal:
+    config: '{id}.json'
+    result: '{id}.jnii'
+  noscatter:
+    config: no_{id}.json
+    result: no_{id}.jnii
+  shape_types:
+  - ellipsoid
+  - sphere
+forward:
+  DT: 5.0e-09
+  T0: 0.0e00
+  T1: 5.0e-09
+generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
+generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_1200nm.yaml
+inverse:
+  source_inverse:
+    angles:
+    - 0
+    block_shape:
+    - 8
+    - 8
+    - 8
+    excitation_pos:
+    - 9.600000000000001
+    - 12.0
+    - 18.400000000000002
+    gpu:
+      device_index: 0
+      enabled: false
+    h_batch_size: 8
+    l1_lambda: 0.005
+    l1_max_iter: 200
+    l2_lambda: 0.001
+    laplacian_lambda: 0.05
+    legacy_itcg_err: 1.0e-10
+    legacy_itcg_lambda: 0.0001
+    basis_mode: fem_node
+    legacy_l1_err: 1.0e-10
+    legacy_l1_lambda: 0.0001
+    legacy_l1_max_iter: 2000
+    legacy_refine_alpha: 0.3
+    legacy_refine_enabled: true
+    legacy_refine_expand_hops: 1
+    normalize_patch_by_area: true
+    observation_mode: legacy_surface_nodes
+    patch_size_pixels: 8
+    surface_z_max: 33.3
+    surface_z_min: 0.3
+    tv_eps: 0.001
+    tv_irls_iter: 15
+    tv_lambda: 0.05
+lengthunit: 0.1
+output_dir: ./output_data
+perturb_bounds:
+  mua: 0.003
+  mus: 0.1
+pipeline:
+  backend: mcx_voxel
+projection:
+  angles:
+  - -90
+  - -60
+  - -30
+  - 0
+  - 30
+  - 60
+  - 90
+  depth_proj_npz: dep_proj.npz
+  detectors:
+  - 1
+  flux_proj_npz: proj.npz
+  no_depth_proj_npz: no_dep_proj.npz
+  no_flux_proj_npz: no_proj.npz
+random_seed: 23
+shape_generation:
+  max_param: 10
+  max_rotation: 30
+  min_param: 4
+  num_shapes: 3
+  shape_types:
+  - ellipsoid
+  - sphere
+species: rat
+src_range:
+  max_rotation: 30
+  x:
+  - 30
+  - 70
+  y:
+  - 30
+  - 90
+  z:
+  - 140
+  - 160
+volume_shape:
+- 182
+- 164
+- 210
+wavelength: 1200
+generated_mesh_path: /home/foods/pro/mcx_simulation/volume_bases/mesh/rat_brain_mesh.npz

@@ -5,6 +5,12 @@ output_dir: ./output_data
 random_seed: 23
 shape_generation:
   num_shapes: 3
+  shape_types:
+  - ellipsoid
+  - sphere
+  min_param: 4
+  max_param: 10
+  max_rotation: 30
 file_naming:
   normal:
     config: '{id}.json'
@@ -28,14 +34,14 @@ forward:
   DT: 5.0e-09
 src_range:
   z:
-  - 70
-  - 110
+  - 60
+  - 100
   y:
-  - 50
-  - 130
+  - 30
+  - 90
   x:
-  - 86
-  - 120
+  - 30
+  - 70
   max_rotation: 30
 projection:
   angles:
@@ -58,3 +64,43 @@ volume_shape:
 - 182
 - 164
 - 210
+pipeline:
+  backend: mcx_voxel
+fem:
+  mesh_cache_name: brain_fem_mesh.npz
+  mesh:
+    method: voxel_tet
+    downsample_factor: 8
+inverse:
+  source_inverse:
+    observation_mode: surface_patch_partial_current
+    angles:
+    - 0
+    - 30
+    - 60
+    surface_z_min: 0.3
+    surface_z_max: 33.3
+    h_batch_size: 8
+    block_shape:
+    - 8
+    - 8
+    - 8
+    patch_size_pixels: 8
+    normalize_patch_by_area: true
+    l2_lambda: 0.001
+    laplacian_lambda: 0.05
+    l1_lambda: 0.005
+    l1_max_iter: 200
+    legacy_l1_lambda: 0.0001
+    legacy_l1_max_iter: 2000
+    legacy_l1_err: 1.0e-10
+    legacy_refine_enabled: true
+    legacy_refine_alpha: 0.3
+    legacy_refine_expand_hops: 1
+    tv_lambda: 0.05
+    tv_irls_iter: 15
+    tv_eps: 0.001
+    gpu:
+      enabled: false
+      device_index: 0
+generated_mesh_path: /home/foods/pro/mcx_simulation/volume_bases/mesh/brain_fem_mesh.npz

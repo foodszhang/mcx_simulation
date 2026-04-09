@@ -26,7 +26,7 @@ def display_npz_heatmaps(npz_path, save_dir=None, figsize=(12, 8), cmap="hot"):
         for key in data.keys():
             array = data[key]
             print(f"数组 '{key}' 的形状: {array.shape}")
-            array = np.log(array)  # 对数变换以增强对比度
+            # array = np.log(array)  # 对数变换以增强对比度
 
             # 处理不同维度的数组
             if array.ndim == 2:
@@ -165,10 +165,10 @@ def display_npz_diff_heatmaps(
 # 使用示例
 if __name__ == "__main__":
     # 示例1: 基本用法
-    npz_path = "./output_20251225_103408/0/proj.npz"
-    no_npz_path = "./output_20251225_103408/0/no_proj.npz"
+    npz_path = "./brain_val/0/proj.npz"
+    # no_npz_path = "./output_20251225_103408/0/no_proj.npz"
     display_npz_heatmaps(npz_path, cmap="hot")
-    display_npz_heatmaps(no_npz_path, cmap="hot")
+    # display_npz_heatmaps(no_npz_path, cmap="hot")
     # display_npz_diff_heatmaps(npz_path, no_npz_path, cmap="bwr")
 
     # 示例2: 保存图片并使用不同颜色映射

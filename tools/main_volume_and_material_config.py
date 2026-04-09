@@ -18,7 +18,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 from skimage.transform import resize
 from src.load_config import load_config
-from src.mesh_generator import generate_mesh_from_volume
+from src.fem_mesh import build_tetrahedral_mesh_from_volume, save_mesh
 
 
 def gen_volume_and_media(area, bin_dir="./", yaml_dir="./", config=None):
@@ -210,25 +210,33 @@ def bootstrap_volume_and_material(config_path=None):
     yaml_path = os.path.abspath(os.path.join(yaml_dir, material_yaml_filename))
     print(f"[生成成功] 体素文件: {bin_path}, 尺寸: {shapes}, 材料文件: {yaml_path}")
 
-    # ========== 生成高质量四面体网格 ==========
+    # ========== 生成高质量四面体网格 (Voxel Tet) ==========
     mesh_dir = os.path.join(base_input_dir, "mesh")
     if not os.path.exists(mesh_dir):
         os.makedirs(mesh_dir)
-    mesh_filename = f"{config.get('species', 'rat')}_{area}_mesh.npz"
-    mesh_path = os.path.abspath(os.path.join(mesh_dir, mesh_filename))
+        
+    fem_config = config.get("fem", {})
+    mesh_cache_name = fem_config.get("mesh_cache_name", f"{config.get('species', 'rat')}_{area}_mesh.npz")
+    mesh_path = os.path.abspath(os.path.join(mesh_dir, mesh_cache_name))
     
-    print(f"[网格生成] 正在生成高质量四面体网格，目标节点数: 20000...")
+    print(f"[网格生成] 正在生成保结构 Voxel-Tet 网格...")
     # Read voxel_size (lengthunit) from config
     dx = float(config.get("lengthunit", 0.1))
-    voxel_size = (dx, dx, dx)
     
-    generate_mesh_from_volume(
+    # Using the structural preserving generator from src.fem_mesh
+    # from src.fem_mesh import build_tetrahedral_mesh_from_volume, save_mesh
+    
+    # If config passed via command line has fem section, use it
+    # But gen_volume_and_media just returned simplified_tags
+    # We should use that.
+    
+    mesh_obj = build_tetrahedral_mesh_from_volume(
         simplified_tags, 
-        voxel_size=voxel_size, 
-        target_nodes=20000, 
-        output_filename=mesh_path
+        dx=dx,
+        mesh_config=config.get("fem", {}).get("mesh", {"downsample_factor": 8})
     )
-    print(f"[网格生成] 网格已保存至: {mesh_path}")
+    save_mesh(mesh_obj, mesh_path)
+    print(f"[网格生成] 网格已保存至: {mesh_path} (节点数: {len(mesh_obj.nodes)})")
 
     target_config_path = os.path.abspath(
         config_path or os.path.join(os.path.dirname(__file__), "../config/config.yaml")
@@ -238,6 +246,9 @@ def bootstrap_volume_and_material(config_path=None):
     all_config["generated_bin_path"] = bin_path
     all_config["generated_material_yaml_path"] = yaml_path
     all_config["generated_mesh_path"] = mesh_path
+    # Also update mesh_cache_name in target config if possible
+    if "fem" not in all_config: all_config["fem"] = {}
+    all_config["fem"]["mesh_cache_name"] = mesh_cache_name
     all_config["volume_shape"] = list(shapes) # Update volume shape to match generated binary
     
     with open(target_config_path, "w", encoding="utf-8") as cf:

@@ -130,12 +130,15 @@ def generate_multi_blt_config(
         min_param = int(shape_cfg.get("min_param", file_naming.get("min_param", 4)))
         max_param = int(shape_cfg.get("max_param", file_naming.get("max_param", 10)))
         # 从volume中提取src_range对应的ROI作为mask
-        # Ensure slicing follows X, Y, Z order consistent with volume shape
-        roi_mask = volume[
-            src_range_x[0] : src_range_x[1],
-            src_range_y[0] : src_range_y[1],
+        # Volume is ZYX. src_range is XYZ.
+        # We need to slice volume[z_range, y_range, x_range] to get the correct anatomical block.
+        # Then transpose to XYZ for shape generation.
+        roi_block_zyx = volume[
             src_range_z[0] : src_range_z[1],
+            src_range_y[0] : src_range_y[1],
+            src_range_x[0] : src_range_x[1],
         ]
+        roi_mask = roi_block_zyx.transpose(2, 1, 0)
         
         # Update voxel size to match roi_mask shape (handle potential truncation)
         src_voxel_size = roi_mask.shape
@@ -160,12 +163,20 @@ def generate_multi_blt_config(
             )
         full_source_path = os.path.join(config_subdir, source_filename)
         source_arr = source_arr.astype(np.float32)
-        # source_arr = source_arr.transpose(2, 1, 0)
-        source_arr.tofile(full_source_path)
+        
+        # Transpose to ZYX for saving (Legacy compatibility)
+        # roi_mask (XYZ) -> source_arr (XYZ) -> save (ZYX)
+        source_arr_saved = source_arr.transpose(2, 1, 0)
+        source_arr_saved.tofile(full_source_path)
+        
+        # Update voxel size for Optode config (using saved ZYX shape)
+        saved_shape = source_arr_saved.shape # (Nz, Ny, Nx)
+        
         # source_arr = source_arr.transpose(2, 1, 0)
         # 转换为zyx顺序（物理仿真需求）
         # 将光源嵌入到体积数据指定区域，便于后续标签合成
         source_pattern_in_vol = np.zeros(volume_shape, dtype=np.float32)
+        # Use XYZ source_arr for XYZ volume embedding
         source_pattern_in_vol[
             src_range_x[0] : src_range_x[1],
             src_range_y[0] : src_range_y[1],
@@ -189,12 +200,12 @@ def generate_multi_blt_config(
                 "Dir": [0, 0, 1, "_NaN_"],
                 "Type": "pattern3d",
                 "Pattern": {
-                    "Nx": src_voxel_size[2],
-                    "Ny": src_voxel_size[1],
+                    "Nx": saved_shape[2],
+                    "Ny": saved_shape[1],
                     "Data": source_filename,
-                    "Nz": src_voxel_size[0],
+                    "Nz": saved_shape[0],
                 },
-                "Param1": (src_voxel_size[2], src_voxel_size[1], src_voxel_size[0]),
+                "Param1": (saved_shape[2], saved_shape[1], saved_shape[0]),
             }
         }
 

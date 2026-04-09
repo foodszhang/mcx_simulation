@@ -1,0 +1,59 @@
+species: rat
+area: true_body
+wavelength: 1200
+output_dir: ./output_data
+random_seed: 35
+shape_generation:
+  num_shapes: 1
+file_naming:
+  normal:
+    config: '{id}.json'
+    result: '{id}.jnii'
+  noscatter:
+    config: no_{id}.json
+    result: no_{id}.jnii
+  shape_types:
+  - ellipsoid
+  min_param: 10
+  max_param: 40
+  max_rotation: 30
+lengthunit: 0.1
+perturb_bounds:
+  mua: 0.003
+  mus: 0.1
+forward:
+  T0: 0.0e00
+  T1: 5.0e-09
+  DT: 5.0e-09
+src_range:
+  z:
+  - 33
+  - 60
+  y:
+  - 33
+  - 85
+  x:
+  - 68
+  - 95
+  max_rotation: 30
+projection:
+  angles:
+  - -90
+  - -60
+  - -30
+  - 0
+  - 30
+  - 60
+  - 90
+  detectors:
+  - 1
+  flux_proj_npz: proj.npz
+  depth_proj_npz: dep_proj.npz
+  no_flux_proj_npz: no_proj.npz
+  no_depth_proj_npz: no_dep_proj.npz
+generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_true_body.bin
+generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_true_body_1200nm.yaml
+volume_shape:
+- 256
+- 256
+- 256

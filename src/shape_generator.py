@@ -210,7 +210,7 @@ def generate_multiple_shapes(
     # ==================================================
     for shape_id in range(1, num_shapes + 1):
         placed = False
-        for _ in range(100):
+        for _ in range(200):
             shape = random.choice(shape_types)
             param = None
             # ====== 条件采样：如有 target_scales，优先按目标尺度采样 ======
@@ -221,12 +221,13 @@ def generate_multiple_shapes(
                 min_rx = int(min_param * 1.2)
                 max_rx = int(max_param * 2)
                 rx = random.randint(min_rx, max_rx)
-                axis_ratio = random.uniform(1.2, 2.0)
-                min_ry = int(rx / axis_ratio)
-                max_ry = rx
+                axis_ratio = random.uniform(4, 5.0)
+                min_ry = max(1, int(min_rx / axis_ratio))
+                max_ry = max(min_ry, int(max_rx / axis_ratio))
                 ry = random.randint(min_ry, max_ry)
                 rz = random.randint(min_ry, max_ry)
                 param = (rx, ry, rz)
+                param = (ry, rx, rz)
             elif shape == "sphere":
                 radius = random.randint(min_param, max_param)
                 param = radius
@@ -248,7 +249,6 @@ def generate_multiple_shapes(
             )
             shape_array, shape_dims = gen_shape(shape, param, rotate_angles)
             max_pos = [voxel_size[i] - shape_dims[i] for i in range(3)]
-            # print("!!!!", max_pos, shape_dims, param)
             if any(dim <= 0 for dim in max_pos):
                 continue
             pos = (
@@ -287,6 +287,7 @@ def generate_multiple_shapes(
                 }
             )
             placed = True
+            print("!!!!!!", rotate_angles, shape_dims, pos)
             break
         if not placed:
             print(

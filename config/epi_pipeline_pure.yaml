@@ -1,0 +1,87 @@
+species: rat
+area: brain
+wavelength: 780
+lengthunit: 0.1
+perturb_bounds:
+  mua: 0.003
+  mus: 0.1
+forward:
+  T0: 0.0e00
+  T1: 5.0e-09
+  DT: 5.0e-09
+src_range:
+  x:
+  - 40
+  - 140
+  y:
+  - 40
+  - 120
+  z:
+  - 40
+  - 80
+file_naming:
+  normal:
+    config: '{id}.json'
+    result: '{id}.jnii'
+  noscatter:
+    config: no_{id}.json
+    result: no_{id}.jnii
+pipeline:
+  backend: fem_de
+fem:
+  epi_mode: true
+  mesh_cache_name: rat_brain_mesh_finer.npz
+  mesh:
+    method: voxel_tet
+    downsample_factor: 2
+shape_generation:
+  num_shapes: 1
+  shape_types:
+  - sphere
+  min_param: 4
+  max_param: 8
+  max_rotation: 30
+projection:
+  angles:
+  - 0
+  - 30
+excitation_source:
+  position:
+  - 9.1
+  - 8.2
+  - 25.0
+  dims:
+  - 1.0
+  - 1.0
+  - 1.0
+inverse:
+  recon_downsample_factor: 4
+  recon_mesh_cache_name: rat_brain_mesh_fine.npz
+  source_inverse:
+    disable_excitation_scaling: true
+    basis_mode: voxel_block
+    block_shape: [12, 12, 12]
+    observation_mode: visible_surface_nodes
+    angles:
+    - 0
+    l1_lambda: 1.0e-04
+    l1_max_iter: 200
+    legacy_l1_lambda: 1.0e-05
+    legacy_l1_max_iter: 100
+    legacy_refine_enabled: true
+    legacy_refine_alpha: 0.4
+    legacy_refine_expand_hops: 2
+    gpu:
+      enabled: true
+      device_index: 0
+    legacy_l1_err: 1e-12
+    tv_lambda: 1.0e-05
+    tv_irls_iter: 20
+    tv_eps: 0.001
+generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
+generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_780nm.yaml
+generated_mesh_path: /home/foods/pro/mcx_simulation/volume_bases/mesh/rat_brain_mesh_finer.npz
+volume_shape:
+- 182
+- 164
+- 210

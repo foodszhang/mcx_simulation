@@ -19,9 +19,7 @@ try:
 except ImportError:
     sys.exit("错误: 缺少 PyYAML 依赖，请运行: pip install pyyaml")
 
-from src.batch_config_generator import generate_multi_blt_config
-from src.batch_simulation_runner import batch_run_mcx_simulations
-from src.batch_postprocessor import process_folders
+from src.pipeline import build_backend, SimulationPipeline
 
 # 初始化日志
 logging.basicConfig(
@@ -63,6 +61,28 @@ def parse_arguments():
         type=str,
         default="config/config.yaml",
         help="配置文件路径 (默认: config/config.yaml)",
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default=None,
+        choices=["mcx_voxel", "fem_de", "mcx_mesh"],
+        help="仿真后端选择，未指定时优先使用配置文件 pipeline.backend 或默认 mcx_voxel",
+    )
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="先执行体素/材料初始化（tools/main_volume_and_material_config.py）再进入主流程",
+    )
+    parser.add_argument(
+        "--bootstrap_only",
+        action="store_true",
+        help="仅执行体素/材料初始化并退出，不运行仿真与后处理",
+    )
+    parser.add_argument(
+        "--run_inverse",
+        action="store_true",
+        help="在仿真与后处理后，自动运行源重建（反演）",
     )
     parser.add_argument("--verbose", action="store_true", help="启用详细日志输出")
 
@@ -115,6 +135,27 @@ def setup_output_dir(out_dir):
     return out_dir
 
 
+def should_run_bootstrap(config):
+    """若缺少关键输入产物则自动触发初始化。"""
+    generated_bin = config.get("generated_bin_path")
+    generated_mat = config.get("generated_material_yaml_path")
+    return not (
+        generated_bin
+        and generated_mat
+        and os.path.exists(generated_bin)
+        and os.path.exists(generated_mat)
+    )
+
+
+def run_bootstrap(config_path):
+    """调用初始化脚本生成体素与材料，并回写配置。"""
+    from tools.main_volume_and_material_config import bootstrap_volume_and_material
+
+    logger.info("执行初始化：生成体素与材料配置...")
+    target_config = bootstrap_volume_and_material(config_path=config_path)
+    logger.info(f"✓ 初始化完成，配置已更新: {target_config}")
+
+
 def run_normal_pipeline(args, config):
     """运行标准流程
 
@@ -128,19 +169,18 @@ def run_normal_pipeline(args, config):
     out_dir = args.out_dir
 
     try:
-        logger.info(f"【1】批量生成体积光学仿真配置 (数量: {args.num_configs})...")
-        generate_multi_blt_config(
-            num_configs=args.num_configs, output_dir=out_dir, config=config
+        backend_name = args.backend or config.get("pipeline", {}).get(
+            "backend", "mcx_voxel"
         )
-        logger.info("✓ 配置生成完成")
-
-        logger.info("【2】批量运行MCX体积仿真...")
-        batch_run_mcx_simulations(out_dir, config=config)
-        logger.info("✓ 仿真完成")
-
-        logger.info("【3】批量仿真输出多角度投影与后处理...")
-        process_folders(out_dir, config=config)
-        logger.info("✓ 后处理完成")
+        backend = build_backend(backend_name)
+        pipeline = SimulationPipeline(backend=backend)
+        pipeline.run(
+            num_configs=args.num_configs,
+            output_dir=out_dir,
+            config=config,
+            logger=logger,
+            run_inverse=args.run_inverse,
+        )
 
         logger.info(f"\n✓ 流程结束，全部数据及投影结果已生成于: {out_dir}")
 
@@ -163,11 +203,23 @@ def main():
         logger.info("=" * 70)
         logger.info("MCX 体积光学仿真流程启动")
         logger.info(f"配置文件: {args.config}")
+        logger.info(f"后端参数: {args.backend or '(自动)'}")
+        logger.info(f"初始化参数: bootstrap={args.bootstrap}, bootstrap_only={args.bootstrap_only}")
         logger.info("=" * 70)
 
         # 加载配置文件
         config = load_config(args.config)
         logger.debug(f"配置已加载: {len(config)} 个配置项")
+
+        if args.bootstrap or args.bootstrap_only or should_run_bootstrap(config):
+            if not args.bootstrap and not args.bootstrap_only:
+                logger.info("检测到缺失初始化产物，自动执行bootstrap。")
+            run_bootstrap(args.config)
+            config = load_config(args.config)
+
+        if args.bootstrap_only:
+            logger.info("bootstrap_only=True，初始化完成后退出。")
+            return
 
         # 设置输出目录
         args.out_dir = setup_output_dir(args.out_dir)

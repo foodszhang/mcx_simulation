@@ -1,0 +1,64 @@
+pipeline:
+  backend: fem_de
+file_naming:
+  volume: '{id}.json'
+  mesh: brain_fem_mesh.npz
+volume:
+  dims:
+  - 60
+  - 60
+  - 60
+  voxel_size:
+  - 1.0
+  - 1.0
+  - 1.0
+  media_count: 5
+material:
+  type: param
+  param_file: config/material_param.json
+fem:
+  mesh_quality: 1.2
+  max_volume: 10.0
+  epi_mode: true
+projection:
+  angles:
+  - 0
+  - 30
+src_range:
+  z:
+  - 80
+  - 130
+  y:
+  - 60
+  - 100
+  x:
+  - 70
+  - 110
+  max_rotation: 30
+model:
+  type: colin27
+excitation_source:
+  position:
+  - 30.0
+  - 30.0
+  - 5.0
+  dims:
+  - 1.0
+  - 1.0
+  - 1.0
+output:
+  save_fields: true
+inverse:
+  source_inverse:
+    method: l1
+    angles:
+    - 0
+    - 30
+    observation_mode: visible_surface_nodes
+generated_bin_path: /home/foods/pro/mcx_simulation/volume_bases/bin/volume_brain.bin
+generated_material_yaml_path: /home/foods/pro/mcx_simulation/volume_bases/material/rat_brain_780nm.yaml
+generated_mesh_path: /home/foods/pro/mcx_simulation/volume_bases/mesh/rat_brain_mesh.npz
+volume_shape:
+- 182
+- 164
+- 210

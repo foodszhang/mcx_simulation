@@ -52,14 +52,16 @@ def batch_run_mcx_simulations(root_folder: str, config: dict) -> None:
     if not os.path.exists(root_folder):
         raise FileNotFoundError(f"错误: 根目录 {root_folder} 不存在")
 
-    volume_bin_name = os.path.basename(config.get("generated_bin_path", "volume_brain.bin"))
+    volume_bin_name = os.path.basename(
+        config.get("generated_bin_path", "volume_true_body.bin")
+    )
     volume_bin_path = os.path.join(root_folder, volume_bin_name)
     if not os.path.exists(volume_bin_path):
         raise FileNotFoundError(f"{volume_bin_name} 不存在于 {root_folder}")
 
     # 预加载体标签矩阵，方便后续复用
     # —— 体标签文件reshape改为自动读取全局config中的volume_shape ——
-    volume_shape = config.get("volume_shape", [182, 164, 210])
+    volume_shape = config.get("volume_shape", [512, 512, 512])
     assert isinstance(volume_shape, (list, tuple)) and len(volume_shape) == 3, (
         "config['volume_shape']格式错误，需为三元组/list"
     )
